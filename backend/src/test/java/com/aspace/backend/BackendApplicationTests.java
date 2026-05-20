@@ -1,4 +1,4 @@
-package com.capstone.backend;
+package com.aspace.backend;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
