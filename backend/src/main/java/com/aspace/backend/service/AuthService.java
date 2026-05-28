@@ -3,8 +3,10 @@ package com.aspace.backend.service;
 import com.aspace.backend.dto.LoginRequestDTO;
 import com.aspace.backend.dto.LoginResponseDTO;
 import com.aspace.backend.dto.UserRegistrationDTO;
+import com.aspace.backend.entities.Avatar;
 import com.aspace.backend.entities.User;
 import com.aspace.backend.exceptions.ResourceBadRequestException;
+import com.aspace.backend.repository.AvatarRepository;
 import com.aspace.backend.repository.UserRepository;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 
@@ -22,15 +25,19 @@ public class AuthService {
     private UserRepository userRepository;
 
     @Autowired
+    private AvatarRepository avatarRepository;
+
+    @Autowired
     private BCryptPasswordEncoder passwordEncoder;
 
-    // Inietta la chiave segreta definita in application.properties / env.properties
     @Value("${jwt.secret}")
     private String jwtSecret;
 
     /**
-     * registrazione di un nuovo utente cifrando la password.
+     * Registrazione di un nuovo utente con cifratura della password
+     * e creazione automatica dell'avatar (Goccia 3D).
      */
+    @Transactional
     public User registerUser(UserRegistrationDTO dto) {
         // 1. Controllo validità ed esistenza email
         if (userRepository.existsByEmail(dto.getEmail())) {
@@ -55,8 +62,15 @@ public class AuthService {
         String hashedPassword = passwordEncoder.encode(dto.getPassword());
         newUser.setPassword(hashedPassword);
 
-        // 4. Salvataggio su DB
-        return userRepository.save(newUser);
+        // 4. Salvataggio Utente su DB
+        User savedUser = userRepository.save(newUser);
+
+        // 5. Creazione automatica Avatar
+        Avatar userAvatar = new Avatar();
+        userAvatar.setUser(savedUser);
+        avatarRepository.save(userAvatar);
+
+        return savedUser;
     }
 
     /**
@@ -79,7 +93,7 @@ public class AuthService {
                 .withClaim("userId", user.getId())
                 .withClaim("username", user.getUsername())
                 .withIssuedAt(new Date())
-                .withExpiresAt(new Date(System.currentTimeMillis() + 86400000)) // 24 ore in millisecondi
+                .withExpiresAt(new Date(System.currentTimeMillis() + 86400000))
                 .sign(algorithm);
 
         // 4. Ritorna i dati necessari al frontend

@@ -1,5 +1,7 @@
 package com.aspace.backend.controller;
 
+import com.aspace.backend.dto.LoginRequestDTO;
+import com.aspace.backend.dto.LoginResponseDTO;
 import com.aspace.backend.dto.UserRegistrationDTO;
 import com.aspace.backend.entities.User;
 import com.aspace.backend.service.AuthService;
@@ -27,5 +29,10 @@ public class AuthController {
                 "userId", registeredUser.getId(),
                 "username", registeredUser.getUsername()
         ), HttpStatus.CREATED);
+    }
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponseDTO> login(@RequestBody LoginRequestDTO loginDTO) {
+        LoginResponseDTO response = authService.loginUser(loginDTO);
+        return ResponseEntity.ok(response);
     }
 }
