@@ -1,8 +1,6 @@
 package com.aspace.backend.controller;
 
-import com.aspace.backend.dto.AssociationCreationDTO;
-import com.aspace.backend.dto.JoinRequestDTO;
-import com.aspace.backend.dto.MemberResponseDTO;
+import com.aspace.backend.dto.*;
 import com.aspace.backend.entities.Association;
 import com.aspace.backend.entities.Membership;
 import com.aspace.backend.service.AssociationService;
@@ -51,5 +49,21 @@ public class AssociationController {
                 "membershipId", pendingMembership.getId(),
                 "status", pendingMembership.getStatus().name()
         ), HttpStatus.CREATED);
+    }
+
+    /**
+     * Endpoint per approvare o rifiutare una richiesta di tesseramento.
+     * PUT http://localhost:8080/api/associations/membership-decision
+     */
+    @PutMapping("/membership-decision")
+    public ResponseEntity<Map<String, Object>> processDecision(@RequestBody MembershipDecisionDTO dto) {
+        Membership updatedMembership = associationService.processMembershipDecision(dto);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Richiesta elaborata con successo!",
+                "membershipId", updatedMembership.getId(),
+                "newStatus", updatedMembership.getStatus().name(),
+                "isBadgeVisible", updatedMembership.isBadgeVisible()
+        ));
     }
 }

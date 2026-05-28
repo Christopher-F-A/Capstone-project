@@ -2,6 +2,7 @@ package com.aspace.backend.service;
 
 import com.aspace.backend.dto.AssociationCreationDTO;
 import com.aspace.backend.dto.JoinRequestDTO;
+import com.aspace.backend.dto.MembershipDecisionDTO;
 import com.aspace.backend.entities.Association;
 import com.aspace.backend.entities.Membership;
 import com.aspace.backend.entities.User;
@@ -130,6 +131,36 @@ public class AssociationService {
         membership.setMembershipCode("ASP-" + uniqueCode);
         membership.setBadgeVisible(false); // Nascondi il badge finché non è ACTIVE
 
+        return membershipRepository.save(membership);
+    }
+
+    /**
+     * Permette agli amministratori di approvare o rifiutare una richiesta di tesseramento.
+     */
+    @Transactional
+    public Membership processMembershipDecision(MembershipDecisionDTO dto) {
+        // 1. Recupera la membership dal database
+        Membership membership = membershipRepository.findById(dto.getMembershipId())
+                .orElseThrow(() -> new ResourceBadRequestException("Richiesta di iscrizione (Membership) non trovata."));
+
+        // 2. Verifica che la membership sia effettivamente in stato PENDING
+        if (membership.getStatus() != Membership.Status.PENDING) {
+            throw new ResourceBadRequestException("Questa richiesta è già stata elaborata ed è in stato: " + membership.getStatus());
+        }
+
+        // 3. Elabora l'azione richiesta
+        String action = dto.getAction().toUpperCase();
+        if ("APPROVE".equals(action)) {
+            membership.setStatus(Membership.Status.ACTIVE);
+            membership.setBadgeVisible(true); // Ora la tessera 3D è attiva e sbloccata!
+        } else if ("REJECT".equals(action)) {
+            membership.setStatus(Membership.Status.REJECTED);
+            membership.setBadgeVisible(false);
+        } else {
+            throw new ResourceBadRequestException("Azione non valida. Usa 'APPROVE' o 'REJECT'.");
+        }
+
+        // 4. Salva le modifiche aggiornate sul DB
         return membershipRepository.save(membership);
     }
 }
