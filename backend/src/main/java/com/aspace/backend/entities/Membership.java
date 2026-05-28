@@ -35,6 +35,6 @@ public class Membership {
     @Column(name = "is_badge_visible")
     private boolean isBadgeVisible = true;
 
-    public enum Role { SUPERADMIN, ADMIN, SEGRETERIA, DIRETTIVO, SOCIO }
-    public enum Status { PENDING, ACTIVE, BANNED }
+    public enum Role { SUPERADMIN, ADMIN, SEGRETARY, DIRECTIVE, MEMBER }
+    public enum Status { PENDING, ACTIVE, REJECTED, BANNED }
 }
