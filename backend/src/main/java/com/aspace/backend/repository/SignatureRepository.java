@@ -8,4 +8,5 @@ import java.util.List;
 @Repository
 public interface SignatureRepository extends JpaRepository<Signature, Long> {
     List<Signature> findByMinuteId(Long minuteId);
+    boolean existsByMinuteIdAndMembershipId(Long minuteId, Long membershipId);
 }

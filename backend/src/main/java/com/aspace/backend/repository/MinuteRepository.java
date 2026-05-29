@@ -8,4 +8,5 @@ import java.util.List;
 @Repository
 public interface MinuteRepository extends JpaRepository<Minute, Long> {
     List<Minute> findByAssociationId(Long associationId);
+    List<Minute> findByAssociationIdOrderByIdDesc(Long associationId);
 }
