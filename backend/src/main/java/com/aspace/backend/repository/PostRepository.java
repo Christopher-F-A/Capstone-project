@@ -7,6 +7,6 @@ import java.util.List;
 
 @Repository
 public interface PostRepository extends JpaRepository<Post, Long> {
-    // Per mostrare la bacheca (Homepage) di una specifica associazione ordinata per ID decrescente
+    // Ordina per ID decrescente: l'ultimo post inserito sarà il primo della lista
     List<Post> findByAssociationIdOrderByIdDesc(Long associationId);
 }
