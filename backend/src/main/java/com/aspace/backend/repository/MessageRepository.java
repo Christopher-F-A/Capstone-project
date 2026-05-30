@@ -7,8 +7,12 @@ import java.util.List;
 
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
-    // Recupera la chat cronologica tra due utenti specifici
+
+    // Recupera la chat speculare tra due utenti ordinata per ID crescente (cronologico)
     List<Message> findBySenderIdAndReceiverIdOrSenderIdAndReceiverIdOrderByIdAsc(
-            Long s1, Long r1, Long s2, Long r2
+            Long senderId1, Long receiverId1, Long senderId2, Long receiverId2
     );
+
+    // Ci serve anche questo per i messaggi non letti nel Service
+    List<Message> findByReceiverIdAndIsRead(Long receiverId, Message.ReadStatus isRead);
 }
