@@ -8,15 +8,12 @@ import com.aspace.backend.entities.User;
 import com.aspace.backend.exceptions.ResourceBadRequestException;
 import com.aspace.backend.repository.AvatarRepository;
 import com.aspace.backend.repository.UserRepository;
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
+import com.aspace.backend.security.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Date;
 
 @Service
 public class AuthService {
@@ -29,6 +26,9 @@ public class AuthService {
 
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
+
+    @Autowired
+    private com.aspace.backend.security.JwtUtils jwtUtils;
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -72,31 +72,31 @@ public class AuthService {
 
         return savedUser;
     }
-
     /**
-     * Autentica un utente e restituisce un token JWT valido per 24 ore.
+     * Autentica un utente e restituisce un token JWT valido.
      */
     public LoginResponseDTO loginUser(LoginRequestDTO dto) {
         // 1. Cerca l'utente tramite email
         User user = userRepository.findByEmail(dto.getEmail())
                 .orElseThrow(() -> new ResourceBadRequestException("Credenziali non valide."));
 
-        // 2. Verifica se la password inserita corrisponde all'hash memorizzato nel DB
+        // 2. Verifica se la password corrisponde
         if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
             throw new ResourceBadRequestException("Credenziali non valide.");
         }
 
-        // 3. Generazione del Token JWT (Scadenza impostata a 24 ore)
-        Algorithm algorithm = Algorithm.HMAC256(jwtSecret);
-        String token = JWT.create()
-                .withSubject(user.getEmail())
-                .withClaim("userId", user.getId())
-                .withClaim("username", user.getUsername())
-                .withIssuedAt(new Date())
-                .withExpiresAt(new Date(System.currentTimeMillis() + 86400000))
-                .sign(algorithm);
+        // 3. metodo centralizzato per generare il Token
+        String token = jwtUtils.generateJwtToken(user.getEmail());
 
         // 4. Ritorna i dati necessari al frontend
-        return new LoginResponseDTO(token, user.getUsername(), user.getId());
+        return new LoginResponseDTO(token, user.getUsername(), user.getId());}
+
+
+    public JwtUtils getJwtUtils() {
+        return jwtUtils;
+    }
+
+    public void setJwtUtils(JwtUtils jwtUtils) {
+        this.jwtUtils = jwtUtils;
     }
 }
