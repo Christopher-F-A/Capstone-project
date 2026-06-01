@@ -1,5 +1,5 @@
 package com.aspace.backend.entities;
-
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
@@ -16,10 +16,12 @@ public class Post {
 
     @ManyToOne
     @JoinColumn(name = "author_id", nullable = false)
+    @JsonIgnoreProperties({"user", "association", "memberships", "posts"})
     private Membership author; // Collegato alla membership dell'autore
 
     @ManyToOne
     @JoinColumn(name = "association_id", nullable = false)
+    @JsonIgnoreProperties({"memberships", "posts", "events"})
     private Association association;
 
     @Enumerated(EnumType.STRING)

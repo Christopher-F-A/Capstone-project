@@ -1,5 +1,6 @@
 package com.aspace.backend.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -15,6 +16,7 @@ public class Transaction {
 
     @ManyToOne
     @JoinColumn(name = "membership_id", nullable = false)
+    @JsonIgnoreProperties({"transactions", "user", "association"})
     private Membership membership;
 
     @Column(name = "stripe_session_id")

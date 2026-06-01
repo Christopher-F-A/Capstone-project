@@ -9,4 +9,6 @@ import java.util.Optional;
 public interface AssociationRepository extends JpaRepository<Association, Long> {
     Optional<Association> findByTaxCodeEts(String taxCodeEts);
     boolean existsByTaxCodeEts(String taxCodeEts);
+
 }
+

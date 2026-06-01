@@ -1,7 +1,9 @@
 package com.aspace.backend.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 
 @Entity
@@ -31,4 +33,11 @@ public class Association {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    // AGGIUNTA LA RELAZIONE CON L'UTENTE CREATORE
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "creator_user_id", nullable = true) // nullable true per non spaccare i vecchi test se presenti
+    @JsonProperty("creatorUser") // Forza il nome del campo nel JSON di risposta
+    @JsonIgnoreProperties({"memberships", "associations", "password", "handler", "hibernateLazyInitializer"})
+    private User creatorUser;
 }

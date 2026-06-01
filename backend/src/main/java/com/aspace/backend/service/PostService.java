@@ -39,9 +39,16 @@ public class PostService {
         Membership author = membershipRepository.findById(dto.getAuthorMembershipId())
                 .orElseThrow(() -> new ResourceBadRequestException("Autore (Membership) non trovato."));
 
-        // 3. Sicurezza logica: l'autore deve appartenere a QUESTA associazione per poter scrivere
+        // 3. Sicurezza logica: l'autore deve appartenere a QUESTA associazione ed essere un gestore
         if (!author.getAssociation().getId().equals(dto.getAssociationId())) {
-            throw new ResourceBadRequestException("L'autore non ha i permessi per pubblicare in questa associazione.");
+            throw new ResourceBadRequestException("L'autore non appartiene a questa associazione.");
+        }
+
+// NUOVO CONTROLLO: Blocca i semplici tesserati (MEMBER o PENDING)
+// (Adatta il nome del metodo getRole() e dell'Enum/Stringa in base a come lo hai strutturato in Membership.java)
+        if (author.getRole() == null ||
+                (!author.getRole().name().equals("SUPERADMIN") && !author.getRole().name().equals("ADMIN"))) {
+            throw new ResourceBadRequestException("Solo gli addetti possono pubblicare post!");
         }
 
         // 4. Mappatura dei campi reali

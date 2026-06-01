@@ -51,6 +51,8 @@ public class AssociationService {
         association.setTaxCodeEts(dto.getTaxCodeEts());
         association.setDescription(dto.getDescription());
         association.setBadgeBaseColor(dto.getBadgeBaseColor());
+        //Colleghiamo il creatore all'entità associazione
+        association.setCreatorUser(creator);
 
         Association savedAssociation = associationRepository.save(association);
 
@@ -69,6 +71,10 @@ public class AssociationService {
         membershipRepository.save(membership);
 
         return savedAssociation;
+    }
+
+    public List<Association> getAllAssociations() {
+        return associationRepository.findAll();
     }
 
     /**

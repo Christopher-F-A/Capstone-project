@@ -37,6 +37,28 @@ public class AssociationController {
     }
 
     /**
+     * Endpoint per ottenere l'elenco completo di tutte le associazioni.
+     * GET http://localhost:8080/api/associations
+     */
+    @GetMapping
+    public ResponseEntity<List<Association>> getAllAssociations() {
+        // 🌟 1. Recuperiamo la lista reale dal Service
+        List<Association> list = associationService.getAllAssociations();
+
+        // 🌟 2. STAMPA DI DEBUG SULLA CONSOLE DI SPRING BOOT (Guarda il terminale Java!)
+        System.out.println("\n========== DEBUG A-SPACE ==========");
+        System.out.println("-> Quante associazioni trova Hibernate nel DB? [ " + (list != null ? list.size() : 0) + " ]");
+        if (list != null && !list.isEmpty()) {
+            System.out.println("-> ID dell'ultimo elemento inserito nel DB: " + list.get(list.size() - 1).getId());
+            System.out.println("-> Creatore dell'ultimo elemento: " +
+                    (list.get(list.size() - 1).getCreatorUser() != null ? list.get(list.size() - 1).getCreatorUser().getUsername() : "NULL (Nessun Creatore)"));
+        }
+        System.out.println("===================================\n");
+
+        return ResponseEntity.ok(list);
+    }
+
+    /**
      * Endpoint per inviare una richiesta di tesseramento/iscrizione.
      * POST http://localhost:8080/api/associations/join
      */

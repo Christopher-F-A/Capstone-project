@@ -1,5 +1,6 @@
 package com.aspace.backend.config;
 
+import com.aspace.backend.repository.UserRepository;
 import com.aspace.backend.security.AuthTokenFilter;
 import com.aspace.backend.security.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,18 +25,18 @@ public class SecurityConfig {
     @Autowired
     private JwtUtils jwtUtils;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    // Configurazione del servizio di recupero credenziali
     @Bean
     public UserDetailsService userDetailsService() {
-        return username -> {
-            // Nota: in seguito ricordati di agganciarlo al tuo UserRepository reale!
-            throw new UsernameNotFoundException("Implementami con la logica del tuo database!");
-        };
+        return email -> (org.springframework.security.core.userdetails.UserDetails) userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Utente non trovato con email: " + email));
     }
 
     // CORREZIONE: Passiamo esplicitamente jwtUtils e il metodo userDetailsService() al costruttore
@@ -64,6 +65,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/transactions/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/events/**").authenticated()
                         .anyRequest().authenticated()
                 );
 
