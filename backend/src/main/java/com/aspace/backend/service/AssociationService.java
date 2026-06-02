@@ -144,29 +144,30 @@ public class AssociationService {
      * Permette agli amministratori di approvare o rifiutare una richiesta di tesseramento.
      */
     @Transactional
-    public Membership processMembershipDecision(MembershipDecisionDTO dto) {
-        // 1. Recupera la membership dal database
+    public Membership processMembershipDecision(MembershipDecisionDTO dto, Long adminUserId) {
+        // 1. Recupera la richiesta
         Membership membership = membershipRepository.findById(dto.getMembershipId())
-                .orElseThrow(() -> new ResourceBadRequestException("Richiesta di iscrizione (Membership) non trovata."));
+                .orElseThrow(() -> new ResourceBadRequestException("Richiesta non trovata."));
 
-        // 2. Verifica che la membership sia effettivamente in stato PENDING
-        if (membership.getStatus() != Membership.Status.PENDING) {
-            throw new ResourceBadRequestException("Questa richiesta è già stata elaborata ed è in stato: " + membership.getStatus());
+        // 2. Recupera chi sta decidendo
+        Membership adminMembership = membershipRepository.findByUserIdAndAssociationId(adminUserId, membership.getAssociation().getId())
+                .orElseThrow(() -> new ResourceBadRequestException("Non sei membro di questa associazione."));
+
+        // 3. Controllo gerarchico: l'admin può modificare questo target?
+        if (adminMembership.getRole() == Membership.Role.ADMIN && membership.getRole() == Membership.Role.SUPERADMIN) {
+            throw new ResourceBadRequestException("Un Admin non può modificare un SuperAdmin!");
         }
 
-        // 3. Elabora l'azione richiesta
+        // 4. Esegui l'azione
         String action = dto.getAction().toUpperCase();
         if ("APPROVE".equals(action)) {
             membership.setStatus(Membership.Status.ACTIVE);
-            membership.setBadgeVisible(true); // Ora la tessera 3D è attiva e sbloccata!
+            membership.setBadgeVisible(true);
         } else if ("REJECT".equals(action)) {
             membership.setStatus(Membership.Status.REJECTED);
             membership.setBadgeVisible(false);
-        } else {
-            throw new ResourceBadRequestException("Azione non valida. Usa 'APPROVE' o 'REJECT'.");
         }
 
-        // 4. Salva le modifiche aggiornate sul DB
         return membershipRepository.save(membership);
     }
     /**
@@ -182,4 +183,22 @@ public class AssociationService {
                         a.getBadgeBaseColor()
                 ))
                 .collect(Collectors.toList());}
-}
+
+    /**
+     * Verifica la gerarchia dei permessi prima di un'azione.
+     * Restituisce true se l'azione è consentita.
+     */
+    private void validateHierarchy(Membership adminMembership, Membership targetMembership) {
+        // Se l'admin è SUPERADMIN, può fare tutto
+        if (adminMembership.getRole() == Membership.Role.SUPERADMIN) {
+            return;
+        }
+
+        // Se l'admin è ADMIN, non può toccare un altro ADMIN o un SUPERADMIN
+        if (adminMembership.getRole() == Membership.Role.ADMIN) {
+            if (targetMembership.getRole() == Membership.Role.SUPERADMIN ||
+                    targetMembership.getRole() == Membership.Role.ADMIN) {
+                throw new ResourceBadRequestException("Operazione negata: Non puoi modificare i privilegi di un altro amministratore.");
+            }
+        }
+    }}

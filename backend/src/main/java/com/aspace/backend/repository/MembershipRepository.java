@@ -12,4 +12,6 @@ public interface MembershipRepository extends JpaRepository<Membership, Long> {
     List<Membership> findByAssociationIdAndStatus(Long associationId, Membership.Status status);
     Optional<Membership> findByMembershipCode(String membershipCode);
     boolean existsByUserIdAndAssociationId(Long userId, Long associationId);
+    boolean existsByUserIdAndAssociationIdAndRoleIn(Long userId, Long associationId, List<Membership.Role> roles);
+    Optional<Membership> findByUserIdAndAssociationId(Long userId, Long associationId);
 }

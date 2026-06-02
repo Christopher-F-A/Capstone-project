@@ -3,10 +3,14 @@ package com.aspace.backend.controller;
 import com.aspace.backend.dto.*;
 import com.aspace.backend.entities.Association;
 import com.aspace.backend.entities.Membership;
+import com.aspace.backend.exceptions.ResourceBadRequestException;
+import com.aspace.backend.repository.UserRepository;
 import com.aspace.backend.service.AssociationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import com.aspace.backend.dto.JoinRequestDTO;
 
@@ -85,15 +89,26 @@ public class AssociationController {
      * Endpoint per approvare o rifiutare una richiesta di tesseramento.
      * PUT http://localhost:8080/api/associations/membership-decision
      */
+    @Autowired
+    private UserRepository userRepository; // Aggiungi questo
+
     @PutMapping("/membership-decision")
     public ResponseEntity<Map<String, Object>> processDecision(@RequestBody MembershipDecisionDTO dto) {
-        Membership updatedMembership = associationService.processMembershipDecision(dto);
+        // 1. Recupera l'email dal contesto di sicurezza (che è il 'principal')
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // 2. Trova l'utente nel DB tramite l'email e prendi l'ID
+        Long currentUserId = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceBadRequestException("Utente non trovato nel database."))
+                .getId();
+
+        // 3. Ora passa l'ID al service
+        Membership updatedMembership = associationService.processMembershipDecision(dto, currentUserId);
 
         return ResponseEntity.ok(Map.of(
                 "message", "Richiesta elaborata con successo!",
                 "membershipId", updatedMembership.getId(),
-                "newStatus", updatedMembership.getStatus().name(),
-                "isBadgeVisible", updatedMembership.isBadgeVisible()
+                "newStatus", updatedMembership.getStatus().name()
         ));
     }
 }
