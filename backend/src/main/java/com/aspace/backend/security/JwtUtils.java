@@ -1,5 +1,6 @@
 package com.aspace.backend.security;
 
+import com.aspace.backend.entities.User;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
@@ -15,9 +16,10 @@ public class JwtUtils {
     // Algoritmo HMAC256 usando la libreria Auth0
     private final Algorithm algorithm = Algorithm.HMAC256(jwtSecret.getBytes());
 
-    public String generateJwtToken(String email) {
+    public String generateJwtToken(User user) {
         return JWT.create()
-                .withSubject(email)
+                .withSubject(user.getEmail()) // L'email rimane il Subject per l'autenticazione
+                .withClaim("username", user.getUsername()) // Aggiungiamo lo username come claim
                 .withIssuedAt(new Date())
                 .withExpiresAt(new Date((new Date()).getTime() + jwtExpirationMs))
                 .sign(algorithm);
@@ -28,6 +30,10 @@ public class JwtUtils {
                 .build()
                 .verify(token)
                 .getSubject();
+    }
+
+    public String getUsernameFromJwtToken(String token) {
+        return JWT.require(algorithm).build().verify(token).getClaim("username").asString();
     }
 
     public boolean validateJwtToken(String authToken) {

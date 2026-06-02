@@ -25,7 +25,7 @@ public class User implements UserDetails {
     private Long id;
 
     @Column(unique = true, nullable = false)
-    @JsonProperty("username") 
+    @JsonProperty("username")
     private String username;
 
     @Column(unique = true, nullable = false)
@@ -35,10 +35,10 @@ public class User implements UserDetails {
     @JsonIgnore // Impedisce tassativamente alla password di entrare in qualsiasi JSON
     private String password;
 
-    @Column(name = "first_name")
+    @Column(name = "first_name", nullable = false)
     private String firstName;
 
-    @Column(name = "last_name")
+    @Column(name = "last_name", nullable = false)
     private String lastName;
 
     @Column(name = "tax_code", unique = true)
@@ -71,6 +71,10 @@ public class User implements UserDetails {
         return this.email;
     }
 
+    public String getEmail() {
+        return this.email;
+    }
+
     @Override
     @JsonIgnore
     public boolean isAccountNonExpired() {
@@ -94,4 +98,5 @@ public class User implements UserDetails {
     public boolean isEnabled() {
         return true;
     }
+
 }

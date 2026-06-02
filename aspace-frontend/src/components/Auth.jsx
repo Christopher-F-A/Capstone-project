@@ -7,6 +7,8 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState(''); // Per la registrazione
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -35,10 +37,12 @@ export default function Auth() {
         await login(email, password);
         window.location.href = '/dashboard';
       } else {
-        await register(username, email, password);
+        await register(username, email, password, firstName, lastName);
         alert("Registrazione completata con successo! Ora puoi accedere.");
         setIsLogin(true); // Ti sposta automaticamente sul form di login
         setPassword('');  // Pulisce la password per sicurezza
+        setFirstName(''); //
+        setLastName('');
       }
     } catch (err) {
       setError(err?.response?.data?.message || 'Errore durante l\'autenticazione');
@@ -98,6 +102,7 @@ export default function Auth() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
+              <>
             <div>
               <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Username</label>
               <input
@@ -109,7 +114,32 @@ export default function Auth() {
                 onChange={(e) => setUsername(e.target.value)}
               />
             </div>
-          )}
+
+        <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Nome</label>
+              <input
+                type="text"
+                required
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-400 text-sm transition-all backdrop-blur-sm"
+                placeholder="Mario"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Cognome</label>
+              <input
+                type="text"
+                required
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-400 text-sm transition-all backdrop-blur-sm"
+                placeholder="Rossi"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
+            </div>
+          </div>
+          </>)}
 
           <div>
             <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Email Address</label>

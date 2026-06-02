@@ -22,9 +22,9 @@ export const login = async (email, password) => {
   }
 };
 
-export const register = async (username, email, password) => {
+export const register = async (username, email, password, firstName, lastName) => {
   try {
-    const response = await apiClient.post('/auth/register', { username, email, password });
+    const response = await apiClient.post('/auth/register', { username, email, password, firstName, lastName });
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || 'Errore durante la registrazione';

@@ -11,6 +11,9 @@ import com.aspace.backend.repository.UserRepository;
 import com.aspace.backend.security.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +35,9 @@ public class AuthService {
 
     @Value("${jwt.secret}")
     private String jwtSecret;
+
+    @Autowired
+    private AuthenticationManager authenticationManager;
 
     /**
      * Registrazione di un nuovo utente con cifratura della password
@@ -75,21 +81,22 @@ public class AuthService {
     /**
      * Autentica un utente e restituisce un token JWT valido.
      */
-    public LoginResponseDTO loginUser(LoginRequestDTO dto) {
-        // 1. Cerca l'utente tramite email
-        User user = userRepository.findByEmail(dto.getEmail())
-                .orElseThrow(() -> new ResourceBadRequestException("Credenziali non valide."));
+    public LoginResponseDTO loginUser(LoginRequestDTO loginDTO) {
+        // 1. Autenticazione (es. con AuthenticationManager)
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(loginDTO.getEmail(), loginDTO.getPassword())
+        );
 
-        // 2. Verifica se la password corrisponde
-        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
-            throw new ResourceBadRequestException("Credenziali non valide.");
-        }
+        // 2. Recupera l'utente dal database (fondamentale per avere l'oggetto completo)
+        User user = userRepository.findByEmail(loginDTO.getEmail())
+                .orElseThrow(() -> new ResourceBadRequestException("Utente non trovato"));
 
-        // 3. metodo centralizzato per generare il Token
-        String token = jwtUtils.generateJwtToken(user.getEmail());
+        // 3. Genera il token passando l'intero oggetto user
+        String jwt = jwtUtils.generateJwtToken(user);
 
-        // 4. Ritorna i dati necessari al frontend
-        return new LoginResponseDTO(token, user.getUsername(), user.getId());}
+        // 4. Ritorna il DTO che include anche lo username per il frontend
+        return new LoginResponseDTO(jwt, user.getUsername(), user.getEmail(), user.getFirstName());
+    }
 
 
     public JwtUtils getJwtUtils() {
