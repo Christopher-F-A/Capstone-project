@@ -169,4 +169,17 @@ public class AssociationService {
         // 4. Salva le modifiche aggiornate sul DB
         return membershipRepository.save(membership);
     }
+    /**
+     * Recupera le associazioni in formato pubblico (senza dati sensibili).
+     * Da usare per il carosello nella pagina di login.
+     */
+    public List<com.aspace.backend.dto.PublicAssociationDTO> findAllPublicAssociations() {
+        return associationRepository.findAll().stream()
+                .map(a -> new com.aspace.backend.dto.PublicAssociationDTO(
+                        a.getId(),
+                        a.getName(),
+                        a.getDescription(),
+                        a.getBadgeBaseColor()
+                ))
+                .collect(Collectors.toList());}
 }

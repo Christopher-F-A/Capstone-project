@@ -67,7 +67,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
 
                         // Permette l'accesso in sola lettura (GET) alle associazioni a chiunque
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/associations").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/associations/public").permitAll()
+                        .requestMatchers("/api/associations/**").authenticated()
 
                         .requestMatchers("/api/transactions/**").authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/events/**").authenticated()

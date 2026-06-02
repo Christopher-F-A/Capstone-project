@@ -36,6 +36,14 @@ public class AssociationController {
         return ResponseEntity.ok(members);
     }
 
+    // 1. NUOVO Endpoint PUBBLICO (da usare per il carosello in Auth.jsx)
+    @GetMapping("/public")
+    public ResponseEntity<List<PublicAssociationDTO>> getAllPublic() {
+        // Qui devi chiamare un metodo del service che converte le Associazioni in DTO
+        // Se non lo hai, puoi fare la stream().map(...) direttamente qui
+        return ResponseEntity.ok(associationService.findAllPublicAssociations());
+    }
+
     /**
      * Endpoint per ottenere l'elenco completo di tutte le associazioni.
      * GET http://localhost:8080/api/associations

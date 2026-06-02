@@ -15,7 +15,7 @@ export default function Auth() {
 
   useEffect(() => {
     // CORRETTO: Aggiunto il prefisso '/api' richiesto dal tuo backend
-    apiClient.get('/associations')
+    apiClient.get('/associations/public')
       .then(res => {
         setAssociations(res.data);
       localStorage.setItem('public_associations_cache', JSON.stringify(res.data));
