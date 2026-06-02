@@ -111,4 +111,19 @@ public class AssociationController {
                 "newStatus", updatedMembership.getStatus().name()
         ));
     }
+    @PutMapping("/member-update")
+    public ResponseEntity<Map<String, Object>> updateMember(@RequestBody UpdateMemberDTO dto) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        Long currentUserId = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceBadRequestException("Utente non trovato."))
+                .getId();
+
+        Membership updated = associationService.updateMemberStatusOrRole(dto, currentUserId);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Membro aggiornato con successo!",
+                "newRole", updated.getRole().name(),
+                "newStatus", updated.getStatus().name()
+        ));
+    }
 }

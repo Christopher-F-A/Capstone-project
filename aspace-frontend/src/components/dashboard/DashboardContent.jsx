@@ -18,7 +18,8 @@ export default function DashboardContent({
   membersLoading,
   handleDecision,
   setShowModal,
-  isDarkMode
+  isDarkMode,
+  onEnterPortal
 }) {
   return (
     <main className="max-w-7xl mx-auto px-6 mt-24 z-10 relative">
@@ -44,6 +45,7 @@ export default function DashboardContent({
           onDecision={handleDecision}
           setShowModal={setShowModal}
           isDarkMode={isDarkMode}
+          onEnterPortal={onEnterPortal} // Inoltra la proprieta a MySpaces
         />
       )}
     </main>

@@ -1,8 +1,6 @@
 package com.aspace.backend.service;
 
-import com.aspace.backend.dto.AssociationCreationDTO;
-import com.aspace.backend.dto.JoinRequestDTO;
-import com.aspace.backend.dto.MembershipDecisionDTO;
+import com.aspace.backend.dto.*;
 import com.aspace.backend.entities.Association;
 import com.aspace.backend.entities.Membership;
 import com.aspace.backend.entities.User;
@@ -14,7 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.aspace.backend.dto.MemberResponseDTO;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -200,4 +198,41 @@ public class AssociationService {
                 throw new ResourceBadRequestException("Operazione negata: Non puoi modificare i privilegi di un altro amministratore.");
             }
         }
+    }
+    @Transactional
+    public Membership updateMemberStatusOrRole(UpdateMemberDTO dto, Long adminUserId) {
+        // 1. Recupera la membership del target da modificare
+        Membership targetMembership = membershipRepository.findById(dto.getMembershipId())
+                .orElseThrow(() -> new ResourceBadRequestException("Membro non trovato."));
+
+        // 2. Recupera la membership di chi sta compiendo l'azione
+        Membership adminMembership = membershipRepository.findByUserIdAndAssociationId(adminUserId, targetMembership.getAssociation().getId())
+                .orElseThrow(() -> new ResourceBadRequestException("Non hai i permessi per questa associazione."));
+
+        // 3. Valida la gerarchia
+        validateHierarchy(adminMembership, targetMembership);
+
+        // 4. Aggiorna il Ruolo se inviato nel DTO
+        if (dto.getNewRole() != null) {
+            try {
+                targetMembership.setRole(Membership.Role.valueOf(dto.getNewRole().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new ResourceBadRequestException("Ruolo non valido.");
+            }
+        }
+
+        // 5. Aggiorna lo Stato (Es: Modificare in BANNED equivale ad eliminarlo dalle funzioni del portale)
+        if (dto.getNewStatus() != null) {
+            try {
+                targetMembership.setStatus(Membership.Status.valueOf(dto.getNewStatus().toUpperCase()));
+                // Se viene bannato o respinto, nascondiamo anche il badge per sicurezza
+                if (targetMembership.getStatus() == Membership.Status.BANNED || targetMembership.getStatus() == Membership.Status.REJECTED) {
+                    targetMembership.setBadgeVisible(false);
+                }
+            } catch (IllegalArgumentException e) {
+                throw new ResourceBadRequestException("Stato non valido.");
+            }
+        }
+
+        return membershipRepository.save(targetMembership);
     }}

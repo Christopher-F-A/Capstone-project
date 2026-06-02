@@ -8,6 +8,11 @@ import LavaBackground from './dashboard/LavaBackground';
 import DashboardContent from './dashboard/DashboardContent';
 import CreateAssociationModal from './dashboard/CreateAssociationModal';
 
+// Importazione dei moduli del portale singolo
+import AssociationFeed from './portal/AssociationFeed';
+import AssociationEvents from './portal/AssociationEvents';
+import AssociationMinutes from './portal/AssociationMinutes';
+
 export default function Dashboard() {
   const user = JSON.parse(localStorage.getItem('user')) || { username: 'Utente', id: null };
 
@@ -20,6 +25,10 @@ export default function Dashboard() {
   const [associations, setAssociations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Stati per il portale singolo dell'associazione
+  const [currentPortal, setCurrentPortal] = useState(null);
+  const [portalTab, setPortalTab] = useState('feed');
 
   // Stati per il modale di creazione
   const [showModal, setShowModal] = useState(false);
@@ -42,9 +51,9 @@ export default function Dashboard() {
     try {
       setLoading(true);
       const response = await apiClient.get('/associations');
-          setAssociations(response.data);
-          localStorage.setItem('public_associations_cache', JSON.stringify(response.data));
-        } catch (err) {
+      setAssociations(response.data);
+      localStorage.setItem('public_associations_cache', JSON.stringify(response.data));
+    } catch (err) {
       setError(err.response?.data?.message || 'Impossibile caricare le associazioni');
     } finally {
       setLoading(false);
@@ -114,7 +123,6 @@ export default function Dashboard() {
       alert('Operazione completata con successo!');
 
       if (selectedAssoc) handleManageAssociation(selectedAssoc);
-      // Ricarica la lista generale per riflettere i cambiamenti reali dal DB
       fetchAssociations();
     } catch (err) {
       alert(err.response?.data?.message || 'Errore durante Elaborazione');
@@ -126,13 +134,84 @@ export default function Dashboard() {
     return user.id && joinedStatus[assoc.id] && creatorId != user.id;
   });
 
+  // GESTIONE REINDIRIZZAMENTO VISTA INTERNA PORTALE
+  if (currentPortal) {
+    const isUserAdminOfCurrentPortal = myAdminAssociations.some(assoc => assoc.id === currentPortal.id);
+
+    return (
+      <div className={`min-h-screen font-sans antialiased pb-12 relative overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
+        <LavaBackground isDarkMode={isDarkMode} lavaColor={lavaColor} />
+
+        <nav className={`fixed top-0 left-0 right-0 z-50 border-b backdrop-blur-xl h-16 flex items-center justify-between px-6 ${isDarkMode ? 'border-white/10 bg-slate-950/60' : 'border-black/5 bg-white/60'}`}>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setCurrentPortal(null)}
+              className="text-xs uppercase tracking-wider font-semibold text-indigo-500 hover:text-indigo-400 cursor-pointer"
+            >
+              Torna all'Hub
+            </button>
+            <span className="text-slate-400">/</span>
+            <span className="font-medium text-sm">{currentPortal.name}</span>
+          </div>
+
+          <div className="flex space-x-6 text-xs uppercase tracking-wider font-semibold">
+            <button
+              onClick={() => setPortalTab('feed')}
+              className={portalTab === 'feed' ? 'text-indigo-500 border-b-2 border-indigo-500 pb-1' : 'text-slate-400 hover:text-slate-200 cursor-pointer'}
+            >
+              Bacheca
+            </button>
+            <button
+              onClick={() => setPortalTab('events')}
+              className={portalTab === 'events' ? 'text-indigo-500 border-b-2 border-indigo-500 pb-1' : 'text-slate-400 hover:text-slate-200 cursor-pointer'}
+            >
+              Eventi
+            </button>
+            <button
+              onClick={() => setPortalTab('minutes')}
+              className={portalTab === 'minutes' ? 'text-indigo-500 border-b-2 border-indigo-500 pb-1' : 'text-slate-400 hover:text-slate-200 cursor-pointer'}
+            >
+              Verbali
+            </button>
+          </div>
+          <div></div>
+        </nav>
+
+        <main className="max-w-7xl mx-auto px-6 mt-28 z-10 relative">
+          {portalTab === 'feed' && (
+            <AssociationFeed
+              associationId={currentPortal.id}
+              isAdmin={isUserAdminOfCurrentPortal}
+              userMembershipId={user.id}
+              isDarkMode={isDarkMode}
+            />
+          )}
+          {portalTab === 'events' && (
+            <AssociationEvents
+              associationId={currentPortal.id}
+              isAdmin={isUserAdminOfCurrentPortal}
+              userId={user.id}
+              isDarkMode={isDarkMode}
+            />
+          )}
+          {portalTab === 'minutes' && (
+            <AssociationMinutes
+              associationId={currentPortal.id}
+              isAdmin={isUserAdminOfCurrentPortal}
+              userMembershipId={user.id}
+              isDarkMode={isDarkMode}
+            />
+          )}
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen font-sans antialiased pb-12 relative overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
 
-      {/* 1. BACKGROUND ANOMATO ESTRATTO */}
       <LavaBackground isDarkMode={isDarkMode} lavaColor={lavaColor} />
 
-      {/* 2. NAVBAR */}
       <Navbar
         user={user}
         isDarkMode={isDarkMode}
@@ -146,7 +225,6 @@ export default function Dashboard() {
         setActiveTab={setActiveTab}
       />
 
-      {/* 3. CONTENUTO DELLE SCHEDE ESTRATTO */}
       <DashboardContent
         activeTab={activeTab}
         associations={associations}
@@ -164,9 +242,9 @@ export default function Dashboard() {
         handleDecision={handleDecision}
         setShowModal={setShowModal}
         isDarkMode={isDarkMode}
+        onEnterPortal={(assoc) => { setCurrentPortal(assoc); setPortalTab('feed'); }}
       />
 
-      {/* 4. MODALE DI CREAZIONE */}
       <CreateAssociationModal
         showModal={showModal}
         setShowModal={setShowModal}

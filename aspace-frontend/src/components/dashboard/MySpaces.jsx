@@ -10,7 +10,8 @@ export default function MySpaces({
   joinedStatus,
   onDecision,
   setShowModal,
-  isDarkMode
+  isDarkMode,
+  onEnterPortal
 }) {
   return (
     <div className="space-y-12">
@@ -68,8 +69,8 @@ export default function MySpaces({
                   </div>
 
                   {joinedStatus[assoc.id] === 'ACTIVE' ? (
-                    <button 
-                      onClick={() => alert(`Reindirizzamento al portale: ${assoc.name}`)}
+                    <button
+                      onClick={() => onEnterPortal(assoc)}
                       className="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium tracking-wider uppercase transition active:scale-95"
                     >
                       Entra nel Portale
@@ -90,9 +91,20 @@ export default function MySpaces({
           {selectedAssoc ? (
             <div>
               <div className={`border-b pb-4 mb-6 ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
-                <h2 className={`text-2xl font-light ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{selectedAssoc.name}</h2>
-                <p className="text-xs text-slate-400 mt-1">{selectedAssoc.description}</p>
-              </div>
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div>
+                                  <h2 className={`text-2xl font-light ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{selectedAssoc.name}</h2>
+                                  <p className="text-xs text-slate-400 mt-1">{selectedAssoc.description}</p>
+                                </div>
+                                <button
+                                  onClick={() => onEnterPortal(selectedAssoc)}
+                                  className="px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-400 text-xs font-semibold uppercase tracking-wider rounded-xl transition flex-shrink-0"
+                                >
+                                  Visualizza Portale Completo
+                                </button>
+                              </div>
+                            </div>
+
 
               <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Richieste di Tesseramento</h3>
               {membersLoading && <p className="text-xs text-slate-400 animate-pulse">Caricamento...</p>}
@@ -106,7 +118,9 @@ export default function MySpaces({
                   {pendingMembers.map((member) => (
                     <div key={member.membershipId} className={`p-4 border rounded-xl flex items-center justify-between transition-all backdrop-blur-sm ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-black/5 border-black/5 hover:bg-black/10'}`}>
                       <div>
-                        <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{member.userUsername || 'Utente ID: ' + member.userId}</p>
+                        <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                          {member.firstName} {member.lastName}
+                        </p>
                         <p className="text-xs text-slate-400 mt-0.5">Ruolo: <span className="text-indigo-500 font-mono font-medium">{member.role}</span></p>
                       </div>
 
