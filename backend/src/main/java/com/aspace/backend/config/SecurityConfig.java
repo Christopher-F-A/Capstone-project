@@ -65,6 +65,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+
+                        // Permette l'accesso in sola lettura (GET) alle associazioni a chiunque
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/associations").permitAll()
+
                         .requestMatchers("/api/transactions/**").authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/events/**").authenticated()
                         .anyRequest().authenticated()

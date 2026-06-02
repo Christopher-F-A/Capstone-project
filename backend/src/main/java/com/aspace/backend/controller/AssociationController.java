@@ -42,10 +42,10 @@ public class AssociationController {
      */
     @GetMapping
     public ResponseEntity<List<Association>> getAllAssociations() {
-        // 🌟 1. Recuperiamo la lista reale dal Service
+        // 1. Recuperiamo la lista reale dal Service
         List<Association> list = associationService.getAllAssociations();
 
-        // 🌟 2. STAMPA DI DEBUG SULLA CONSOLE DI SPRING BOOT (Guarda il terminale Java!)
+        // 2. STAMPA DI DEBUG SULLA CONSOLE DI SPRING BOOT (Guarda il terminale Java!)
         System.out.println("\n========== DEBUG A-SPACE ==========");
         System.out.println("-> Quante associazioni trova Hibernate nel DB? [ " + (list != null ? list.size() : 0) + " ]");
         if (list != null && !list.isEmpty()) {

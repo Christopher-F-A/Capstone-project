@@ -2,13 +2,15 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,wrap}",
+    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/*.{js,ts,jsx,tsx}",
+    "./src/components/**/*.{js,ts,jsx,tsx}"
   ],
   theme: {
     extend: {
       animation: {
-        // animazione fluida di 15 secondi in loop continuo
         'fluid-bg': 'fluidGradient 15s ease infinite',
+        'scroll-infinite': 'scrollInfinite 25s linear infinite',
       },
       keyframes: {
         fluidGradient: {
@@ -21,6 +23,10 @@ export default {
             'background-position': 'right bottom',
           },
         },
+        scrollInfinite: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        }
       },
     },
   },
