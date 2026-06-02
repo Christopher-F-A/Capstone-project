@@ -11,6 +11,7 @@ import com.aspace.backend.repository.AssociationRepository;
 import com.aspace.backend.repository.MembershipRepository;
 import com.aspace.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.aspace.backend.dto.MemberResponseDTO;
@@ -36,14 +37,12 @@ public class AssociationService {
      */
     @Transactional
     public Association createAssociation(AssociationCreationDTO dto) {
-        // 1. Verifica se il codice fiscale ETS è già registrato
-        if (associationRepository.existsByTaxCodeEts(dto.getTaxCodeEts())) {
-            throw new ResourceBadRequestException("Questo Codice Fiscale ETS è già associato a un'organizzazione su A-SPACE.");
-        }
+        // Recupera l'email dal token JWT autenticato
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        // 2. Recupera l'utente fondatore
-        User creator = userRepository.findById(dto.getCreatorUserId())
-                .orElseThrow(() -> new ResourceBadRequestException("Utente creatore non trovato."));
+        // Recupera l'utente dal DB usando l'email
+        User creator = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceBadRequestException("Utente non trovato nel sistema."));
 
         // 3. Mappa e salva l'Associazione
         Association association = new Association();

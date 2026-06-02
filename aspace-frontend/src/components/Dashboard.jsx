@@ -53,7 +53,7 @@ export default function Dashboard() {
 
   const myAdminAssociations = associations.filter(assoc => {
     const creatorId = assoc.creatorUser?.id || assoc.creatorUserId;
-    return creatorId == user.id;
+    return user.id && creatorId && creatorId == user.id;
   });
 
   const [joinedStatus, setJoinedStatus] = useState(() => {
@@ -112,17 +112,19 @@ export default function Dashboard() {
     try {
       await apiClient.put('/associations/membership-decision', payload);
       alert('Operazione completata con successo!');
-      const statusValue = action === 'APPROVE' ? 'ACTIVE' : 'REJECTED';
-      const updated = { ...joinedStatus, [assocId]: statusValue };
-      setJoinedStatus(updated);
-      localStorage.setItem(`user_joined_${user.id}`, JSON.stringify(updated));
+
       if (selectedAssoc) handleManageAssociation(selectedAssoc);
+      // Ricarica la lista generale per riflettere i cambiamenti reali dal DB
+      fetchAssociations();
     } catch (err) {
-      alert(err.response?.data?.message || 'Errore durante l\'elaborazione');
+      alert(err.response?.data?.message || 'Errore durante Elaborazione');
     }
   };
 
-  const myMemberAssociations = associations.filter(assoc => joinedStatus[assoc.id] && assoc.creatorUser?.id !== user.id);
+  const myMemberAssociations = associations.filter(assoc => {
+    const creatorId = assoc.creatorUser?.id || assoc.creatorUserId;
+    return user.id && joinedStatus[assoc.id] && creatorId != user.id;
+  });
 
   return (
     <div className={`min-h-screen font-sans antialiased pb-12 relative overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>

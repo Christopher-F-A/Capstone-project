@@ -95,7 +95,7 @@ public class AuthService {
         String jwt = jwtUtils.generateJwtToken(user);
 
         // 4. Ritorna il DTO che include anche lo username per il frontend
-        return new LoginResponseDTO(jwt, user.getUsername(), user.getEmail(), user.getFirstName());
+        return new LoginResponseDTO(jwt, user.getId(), user.getUsername(), user.getEmail(), user.getFirstName());
     }
 
 
