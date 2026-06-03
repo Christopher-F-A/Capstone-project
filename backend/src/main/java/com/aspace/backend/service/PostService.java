@@ -11,6 +11,9 @@ import com.aspace.backend.repository.PostRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.aspace.backend.entities.User;
+import com.aspace.backend.repository.UserRepository;
 
 import java.util.List;
 
@@ -26,41 +29,42 @@ public class PostService {
     @Autowired
     private MembershipRepository membershipRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     /**
      * Crea e pubblica un nuovo post basato sulla tua entità reale.
      */
     @Transactional
     public Post createPost(PostCreationDTO dto) {
-        // 1. Validazione Associazione
+        // 1. Validazione esistenza Associazione
         Association association = associationRepository.findById(dto.getAssociationId())
                 .orElseThrow(() -> new ResourceBadRequestException("Associazione non trovata."));
 
-        // 2. Validazione Autore (Membership)
-        Membership author = membershipRepository.findById(dto.getAuthorMembershipId())
-                .orElseThrow(() -> new ResourceBadRequestException("Autore (Membership) non trovato."));
+        // 2. Sicurezza: Recupera l'email dell'utente corrente dal token JWT autenticato
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceBadRequestException("Utente autenticato non trovato."));
 
-        // 3. Sicurezza logica: l'autore deve appartenere a QUESTA associazione ed essere un gestore
-        if (!author.getAssociation().getId().equals(dto.getAssociationId())) {
-            throw new ResourceBadRequestException("L'autore non appartiene a questa associazione.");
-        }
+        // 3. Trova la reale riga di tesseramento (Membership) di questo utente per QUESTA associazione
+        Membership author = membershipRepository.findByUserIdAndAssociationId(currentUser.getId(), association.getId())
+                .orElseThrow(() -> new ResourceBadRequestException("L'autore non appartiene a questa associazione."));
 
-// NUOVO CONTROLLO: Blocca i semplici tesserati (MEMBER o PENDING)
-// (Adatta il nome del metodo getRole() e dell'Enum/Stringa in base a come lo hai strutturato in Membership.java)
+        // 4. Controllo Autorizzazioni: Blocca i semplici tesserati (MEMBER o PENDING)
         if (author.getRole() == null ||
                 (!author.getRole().name().equals("SUPERADMIN") && !author.getRole().name().equals("ADMIN"))) {
             throw new ResourceBadRequestException("Solo gli addetti possono pubblicare post!");
         }
 
-        // 4. Mappatura dei campi reali
+        // 5. Mappatura dei campi e salvataggio
         Post post = new Post();
         post.setAssociation(association);
-        post.setAuthor(author);
+        post.setAuthor(author); // Usa la membership reale recuperata in modo sicuro dal server
         post.setTitle(dto.getTitle());
         post.setContentBody(dto.getContentBody());
         post.setMediaUrl(dto.getMediaUrl());
         post.setEventDate(dto.getEventDate());
 
-        // Gestione corretta dell'Enum PostType
         try {
             post.setType(Post.PostType.valueOf(dto.getType().toUpperCase()));
         } catch (IllegalArgumentException e) {
