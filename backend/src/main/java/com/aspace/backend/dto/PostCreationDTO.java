@@ -12,4 +12,5 @@ public class PostCreationDTO {
     private String contentBody;
     private LocalDate eventDate; // Opzionale (solo se type è EVENT)
     private String mediaUrl;     // Opzionale
+    private Long eventId;
 }

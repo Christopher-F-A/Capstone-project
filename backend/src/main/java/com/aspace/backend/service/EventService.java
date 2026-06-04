@@ -2,16 +2,11 @@ package com.aspace.backend.service;
 
 import com.aspace.backend.dto.BookingRequestDTO;
 import com.aspace.backend.dto.EventCreationDTO;
-import com.aspace.backend.entities.Association;
-import com.aspace.backend.entities.Booking;
-import com.aspace.backend.entities.Event;
-import com.aspace.backend.entities.User;
+import com.aspace.backend.entities.*;
 import com.aspace.backend.exceptions.ResourceBadRequestException;
-import com.aspace.backend.repository.AssociationRepository;
-import com.aspace.backend.repository.BookingRepository;
-import com.aspace.backend.repository.EventRepository;
-import com.aspace.backend.repository.UserRepository;
+import com.aspace.backend.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +27,12 @@ public class EventService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private MembershipRepository membershipRepository;
+
+    @Autowired
+    private CloudinaryService cloudinaryService;
 
     /**
      * Crea e pubblica un nuovo evento per un'associazione.
@@ -58,8 +59,40 @@ public class EventService {
         event.setMaxSlots(dto.getMaxSlots());
         event.setBookedSlots(0);
         event.setCancelled(false);
+        event.setImageUrl(dto.getImageUrl());
 
         return eventRepository.save(event);
+    }
+
+    @Transactional
+    public void deleteEvent(Long eventId) {
+        // 1. Verifica esistenza dell'evento
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceBadRequestException("Evento non trovato."));
+
+        // 2. Recupera l'utente dal JWT
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceBadRequestException("Utente non trovato."));
+
+        // 3. Recupera la membership
+        Membership membership = membershipRepository.findByUserIdAndAssociationId(currentUser.getId(), event.getAssociation().getId())
+                .orElseThrow(() -> new ResourceBadRequestException("Non appartieni a questa associazione."));
+
+        // 4. Controllo permessi
+        if (membership.getRole() != Membership.Role.ADMIN && membership.getRole() != Membership.Role.SUPERADMIN) {
+            throw new ResourceBadRequestException("Operazione negata: Solo gli amministratori possono eliminare gli eventi.");
+        }
+
+        if (event.getImageUrl() != null) {
+            try {
+                cloudinaryService.deleteFile(event.getImageUrl());
+            } catch (Exception e) {
+                System.err.println("Impossibile eliminare l'immagine dell'evento da Cloudinary: " + e.getMessage());
+            }
+        }
+
+        eventRepository.delete(event);
     }
 
     /**

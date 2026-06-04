@@ -41,4 +41,7 @@ public class Event {
 
     @Column(name = "is_cancelled", nullable = false)
     private boolean isCancelled = false;
+
+    @Column(name = "image_url")
+    private String imageUrl;
 }

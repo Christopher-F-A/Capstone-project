@@ -17,4 +17,6 @@ public interface SavedPostRepository extends JpaRepository<SavedPost, Long> {
 
     // Trova una specifica relazione per poterla eliminare (rimozione preferiti)
     Optional<SavedPost> findByPostIdAndUserId(Long postId, Long userId);
+
+    void deleteByPostId(Long postId);
 }

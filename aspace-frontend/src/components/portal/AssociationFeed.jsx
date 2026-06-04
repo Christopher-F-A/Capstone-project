@@ -1,29 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../api/apiClient';
 
-export default function AssociationFeed({ associationId, isAdmin, userMembershipId, isDarkMode }) {
+export default function AssociationFeed({ associationId, isAdmin, userMembershipId, isDarkMode, onRedirectToEvents }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Stati per il form di creazione (visibile solo agli admin)
   const [title, setTitle] = useState('');
   const [contentBody, setContentBody] = useState('');
-  const [postType, setPostType] = useState('INFO'); // 'INFO' o 'EVENT'
-  const [eventDate, setEventDate] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
+  const [uploadingMedia, setUploadingMedia] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
 
   useEffect(() => {
-    if (associationId) {
-      fetchPosts();
-    }
+    if (associationId) fetchPosts();
   }, [associationId]);
 
   const fetchPosts = async () => {
     try {
       setLoading(true);
-      // Invocazione dell'endpoint di Spring Boot per recuperare i post dell'associazione
       const response = await apiClient.get(`/posts/association/${associationId}`);
       setPosts(response.data);
     } catch (err) {
@@ -33,33 +28,47 @@ export default function AssociationFeed({ associationId, isAdmin, userMembership
     }
   };
 
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploadingMedia(true);
+      const response = await apiClient.post('/media/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      setMediaUrl(response.data.url);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Errore durante il caricamento del file.');
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
+
   const handleCreatePost = async (e) => {
     e.preventDefault();
     if (!title || !contentBody) return;
 
-    // Costruiamo il payload speculare al PostCreationDTO del backend
     const payload = {
       associationId: associationId,
-      authorMembershipId: userMembershipId, // Passiamo l'ID della membership dell'utente corrente
-      type: postType,
+      authorMembershipId: userMembershipId,
+      type: 'INFO',
       title: title,
       contentBody: contentBody,
-      eventDate: postType === 'EVENT' ? eventDate : null,
-      mediaUrl: mediaUrl || null
+      eventDate: null,
+      mediaUrl: mediaUrl || null,
+      eventId: null
     };
 
     try {
       setSubmitLoading(true);
       await apiClient.post('/posts', payload);
-
-      // Reset dei campi del form
-      setTitle('');
-      setContentBody('');
-      setPostType('INFO');
-      setEventDate('');
-      setMediaUrl('');
-
-      // Ricarica la bacheca per mostrare il nuovo post in cima
+      setTitle(''); setContentBody(''); setMediaUrl('');
       fetchPosts();
     } catch (err) {
       alert(err.response?.data?.message || 'Errore durante la pubblicazione.');
@@ -68,186 +77,108 @@ export default function AssociationFeed({ associationId, isAdmin, userMembership
     }
   };
 
-  // Funzione per formattare la data dell'evento in italiano senza usare librerie esterne
-  const formatEventDate = (dateString) => {
-    if (!dateString) return '';
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('it-IT', options);
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm('Sei sicuro di voler eliminare questo post dalla bacheca?')) return;
+
+    try {
+      await apiClient.delete(`/posts/${postId}`);
+      fetchPosts();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Impossibile completare la rimozione del post.');
+    }
   };
 
   return (
     <div className="space-y-8 max-w-3xl mx-auto">
-
-      {/* ✍BOX DI CREAZIONE: VISIBILE SOLO SE L'UTENTE È ADMIN O SUPERADMIN */}
       {isAdmin && (
         <div className={`p-6 rounded-2xl border backdrop-blur-md shadow-xl transition-all ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white/80 border-black/5'}`}>
           <h3 className={`text-sm font-semibold uppercase tracking-wider mb-4 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
             Nuova Comunicazione Ufficiale
           </h3>
           <form onSubmit={handleCreatePost} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Titolo</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Inserisci un titolo accattivante..."
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className={`w-full px-4 py-2 rounded-xl border text-sm focus:outline-none focus:border-indigo-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white/5 border-black/10 text-slate-900'}`}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Tipologia Post</label>
-                <select
-                  value={postType}
-                  onChange={(e) => setPostType(e.target.value)}
-                  className={`w-full px-4 py-2 rounded-xl border text-sm focus:outline-none focus:border-indigo-500 ${isDarkMode ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-black/10 text-slate-900'}`}
-                >
-                  <option value="INFO">Informativa Generale (INFO)</option>
-                  <option value="EVENT">Condivisione Evento (EVENT)</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Titolo</label>
+              <input type="text" required placeholder="Inserisci un titolo..." value={title} onChange={(e) => setTitle(e.target.value)} className={`w-full px-4 py-2 rounded-xl border text-sm focus:outline-none focus:border-indigo-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white/5 border-black/10 text-slate-900'}`} />
             </div>
 
-            {/* CAMPO DINAMICO: COMPARE SOLO SE IL POST È UN EVENTO */}
-            {postType === 'EVENT' && (
-              <div className="animate-fadeIn">
-                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Data dell'Evento</label>
-                <input
-                  type="date"
-                  required={postType === 'EVENT'}
-                  value={eventDate}
-                  onChange={(e) => setEventDate(e.target.value)}
-                  className={`w-full px-4 py-2 rounded-xl border text-sm focus:outline-none focus:border-indigo-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white/5 border-black/10 text-slate-900'}`}
-                />
-              </div>
-            )}
-
             <div>
-              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">URL Immagine / Media (Opzionale)</label>
+              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Immagine del Post (Carica da dispositivo)</label>
               <input
-                type="url"
-                placeholder="https://esempio.com/immagine.jpg"
-                value={mediaUrl}
-                onChange={(e) => setMediaUrl(e.target.value)}
-                className={`w-full px-4 py-2 rounded-xl border text-sm focus:outline-none focus:border-indigo-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white/5 border-black/10 text-slate-900'}`}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className={`w-full text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600/20 file:text-indigo-400 hover:file:bg-indigo-600/30 cursor-pointer ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
               />
+              {uploadingMedia && <p className="text-[11px] text-indigo-400 animate-pulse mt-1.5">Elaborazione file e caricamento cloud in corso...</p>}
+              {mediaUrl && (
+                <div className="mt-3 relative w-32 h-20 rounded-lg overflow-hidden border border-white/10">
+                  <img src={mediaUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => setMediaUrl('')} className="absolute top-1 right-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded uppercase font-mono">Rimuovi</button>
+                </div>
+              )}
             </div>
 
             <div>
-              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Contenuto del Messaggio</label>
-              <textarea
-                required
-                rows="4"
-                placeholder="Scrivi qui il corpo del post ufficiale..."
-                value={contentBody}
-                onChange={(e) => setContentBody(e.target.value)}
-                className={`w-full px-4 py-2 rounded-xl border text-sm resize-none focus:outline-none focus:border-indigo-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white/5 border-black/10 text-slate-900'}`}
-              />
+              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Contenuto</label>
+              <textarea required rows="4" placeholder="Scrivi qui il messaggio..." value={contentBody} onChange={(e) => setContentBody(e.target.value)} className={`w-full px-4 py-2 rounded-xl border text-sm resize-none focus:outline-none focus:border-indigo-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white/5 border-black/10 text-slate-900'}`} />
             </div>
-
             <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={submitLoading}
-                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs uppercase tracking-wider font-semibold rounded-xl transition shadow-lg disabled:opacity-50"
-              >
-                {submitLoading ? 'Pubblicazione...' : 'Pubblica in Bacheca'}
+              <button type="submit" disabled={submitLoading || uploadingMedia} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs uppercase tracking-wider font-semibold rounded-xl transition shadow-lg disabled:opacity-50">
+                Pubblica Post
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* SEZIONE FEED DEI POST */}
       <div className="space-y-6">
-        <h2 className={`text-xs font-semibold uppercase tracking-widest text-slate-400 border-b pb-2 ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
-          Comunicazioni recenti
-        </h2>
-
-        {loading && <p className="text-sm text-slate-400 animate-pulse italic">Aggiornamento della bacheca in corso...</p>}
-        {error && <p className="text-sm text-red-400 font-medium">{error}</p>}
-        {!loading && posts.length === 0 && (
-          <p className="text-sm text-slate-500 italic py-8 text-center">Nessun post pubblicato in questa bacheca.</p>
-        )}
-
         {!loading && posts.map((post) => (
-          <div
-            key={post.id}
-            className={`rounded-2xl border backdrop-blur-md shadow-lg overflow-hidden transition-all duration-300 relative ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white/60 border-black/5'}`}
-          >
-            {/* Badge Tematico Dinamico a seconda del Tipo di Post */}
-            <div className="absolute top-4 right-4 flex items-center space-x-2">
-              <span className={`text-[9px] px-2.5 py-0.5 rounded-full font-mono uppercase tracking-wider font-bold ${
-                post.type === 'EVENT'
-                  ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30'
-                  : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
-              }`}>
+          <div key={post.id} className={`rounded-2xl border backdrop-blur-md shadow-lg p-6 relative ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white/60 border-black/5'}`}>
+
+            <div className="absolute top-4 right-4 flex items-center space-x-3">
+              {isAdmin && (
+                <button
+                  onClick={() => handleDeletePost(post.id)}
+                  className="text-lg font-bold text-red-400 hover:text-red-500 cursor-pointer border-none bg-transparent p-0 leading-none"
+                  title="Elimina post"
+                >
+                  X
+                </button>
+              )}
+              <span className={`text-[9px] px-2.5 py-0.5 rounded-full font-mono font-bold uppercase tracking-wider ${post.type === 'EVENT' ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30' : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'}`}>
                 {post.type}
               </span>
             </div>
 
-            <div className="p-6 space-y-4">
-              {/* Autore (Rigorosamente Nome + Cognome ricavati dall'oggetto author.user) */}
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold font-mono">
-                  {post.author?.user?.firstName?.charAt(0)}{post.author?.user?.lastName?.charAt(0)}
-                </div>
+            <h3 className={`text-xl font-normal tracking-wide mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{post.title}</h3>
+
+            {/* CORREZIONE STRUTTURALE: L'IMMAGINE NON VIENE PIÙ TAGLIATA O SCHIACCIATA */}
+            {post.mediaUrl && (
+              <div className={`mb-4 rounded-xl overflow-hidden border p-1 bg-slate-500/5 ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
+                <img
+                  src={post.mediaUrl}
+                  alt={post.title}
+                  className="w-full h-auto max-h-[400px] object-contain rounded-lg mx-auto"
+                />
+              </div>
+            )}
+
+            <p className={`text-sm font-light leading-relaxed whitespace-pre-line mb-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{post.contentBody}</p>
+
+            {post.type === 'EVENT' && (
+              <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-fuchsia-500/5 ${isDarkMode ? 'border-fuchsia-500/20' : 'border-fuchsia-500/10'}`}>
                 <div>
-                  <p className={`text-xs font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                    {post.author?.user?.firstName} {post.author?.user?.lastName}
-                  </p>
-                  <p className="text-[10px] text-slate-400 font-mono">Direttivo dell'Ente</p>
+                  <p className={`text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-fuchsia-400' : 'text-fuchsia-600'}`}>Iniziativa Condivisa</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Iscrizioni aperte nel pannello agenda</p>
                 </div>
+                <button onClick={() => onRedirectToEvents()} className="px-4 py-1.5 bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-semibold rounded-lg transition">
+                  Dettagli e Prenotazione
+                </button>
               </div>
-
-              {/* Titolo e Corpo del Post */}
-              <div>
-                <h3 className={`text-xl font-normal tracking-wide mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                  {post.title}
-                </h3>
-                <p className={`text-sm font-light leading-relaxed whitespace-pre-line ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                  {post.contentBody}
-                </p>
-              </div>
-
-              {/* CONTENITORE EVENTO: Compare solo se il post condivide un evento */}
-              {post.type === 'EVENT' && post.eventDate && (
-                <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 backdrop-blur-sm ${
-                  isDarkMode ? 'bg-fuchsia-500/5 border-fuchsia-500/20' : 'bg-fuchsia-500/5 border-fuchsia-500/10'
-                }`}>
-                  <div className="flex items-center space-x-3">
-                    <span className="text-2xl">📅</span>
-                    <div>
-                      <p className={`text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-fuchsia-400' : 'text-fuchsia-600'}`}>
-                        Evento in Programma
-                      </p>
-                      <p className={`text-sm font-mono mt-0.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                        {formatEventDate(post.eventDate)}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-slate-400 italic">Consulta la scheda Calendario per prenotare</span>
-                </div>
-              )}
-
-              {/* Media opzionale allegato */}
-              {post.mediaUrl && (
-                <div className="pt-2">
-                  <img
-                    src={post.mediaUrl}
-                    alt={post.title}
-                    className="w-full max-h-72 object-cover rounded-xl border border-white/10"
-                    onError={(e) => { e.target.style.display = 'none'; }} // Nasconde l'immagine se l'URL è rotto
-                  />
-                </div>
-              )}
-            </div>
+            )}
           </div>
         ))}
       </div>
-
     </div>
   );
 }

@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +29,14 @@ public class EventController {
     public ResponseEntity<Event> createEvent(@RequestBody EventCreationDTO dto) {
         Event createdEvent = eventService.createEvent(dto);
         return new ResponseEntity<>(createdEvent, HttpStatus.CREATED);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, String>> deleteEvent(@PathVariable Long id) {
+        eventService.deleteEvent(id);
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Evento eliminato definitivamente dall'agenda.");
+        return ResponseEntity.ok(response);
     }
 
     /**

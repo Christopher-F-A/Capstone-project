@@ -40,5 +40,8 @@ public class Post {
     @Column(name = "media_url")
     private String mediaUrl;
 
+    @Column(name = "event_id")
+    private Long eventId;
+
     public enum PostType { INFO, EVENT }
 }

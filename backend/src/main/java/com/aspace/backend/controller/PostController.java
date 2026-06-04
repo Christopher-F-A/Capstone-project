@@ -8,7 +8,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/posts")
@@ -27,5 +29,13 @@ public class PostController {
     public ResponseEntity<List<Post>> getFeed(@PathVariable Long associationId) {
         List<Post> feed = postService.getFeedByAssociation(associationId);
         return ResponseEntity.ok(feed);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, String>> deletePost(@PathVariable Long id) {
+        postService.deletePost(id);
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Post rimosso con successo dalla bacheca.");
+        return ResponseEntity.ok(response);
     }
 }

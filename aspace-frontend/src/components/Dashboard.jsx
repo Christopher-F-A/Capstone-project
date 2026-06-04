@@ -180,11 +180,12 @@ export default function Dashboard() {
         <main className="max-w-7xl mx-auto px-6 mt-28 z-10 relative">
           {portalTab === 'feed' && (
             <AssociationFeed
-              associationId={currentPortal.id}
-              isAdmin={isUserAdminOfCurrentPortal}
-              userMembershipId={user.id}
-              isDarkMode={isDarkMode}
-            />
+                associationId={currentPortal.id}
+                isAdmin={isUserAdminOfCurrentPortal}
+                userMembershipId={user.id}
+                isDarkMode={isDarkMode}
+                onRedirectToEvents={() => setPortalTab('events')} // Cambia la tab interna portando l'utente su Eventi
+              />
           )}
           {portalTab === 'events' && (
             <AssociationEvents
