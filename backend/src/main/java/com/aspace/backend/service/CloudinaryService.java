@@ -34,8 +34,17 @@ public class CloudinaryService {
     }
 
     public String uploadFile(MultipartFile file) throws IOException {
-        // Carica il file come risorsa generica/raw per supportare sia immagini che PDF
-        Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "auto"));
+        String fileName = file.getOriginalFilename();
+        Map options = ObjectUtils.asMap("resource_type", "auto");
+
+        if (fileName != null && fileName.toLowerCase().endsWith(".pdf")) {
+            options = ObjectUtils.asMap(
+                    "resource_type", "image",
+                    "format", "pdf"
+            );
+        }
+
+        Map uploadResult = cloudinary.uploader().upload(file.getBytes(), options);
         return uploadResult.get("secure_url").toString();
     }
 

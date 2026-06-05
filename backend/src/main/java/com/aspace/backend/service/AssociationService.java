@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
-
 import java.util.UUID;
 
 @Service
@@ -30,43 +30,32 @@ public class AssociationService {
     @Autowired
     private MembershipRepository membershipRepository;
 
-    /**
-     * Crea un'associazione e assegna l'utente creatore come SUPERADMIN attivo.
-     */
     @Transactional
     public Association createAssociation(AssociationCreationDTO dto) {
-        // Recupera l'email dal token JWT autenticato
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-
-        // Recupera l'utente dal DB usando l'email
         User creator = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceBadRequestException("Utente non trovato nel sistema."));
 
-        // 3. Mappa e salva l'Associazione
         Association association = new Association();
         association.setName(dto.getName());
         association.setTaxCodeEts(dto.getTaxCodeEts());
         association.setDescription(dto.getDescription());
         association.setBadgeBaseColor(dto.getBadgeBaseColor());
-        //Colleghiamo il creatore all'entità associazione
         association.setCreatorUser(creator);
 
         Association savedAssociation = associationRepository.save(association);
 
-        // 4. Crea la Membership di tipo SUPERADMIN
         Membership membership = new Membership();
         membership.setUser(creator);
         membership.setAssociation(savedAssociation);
         membership.setRole(Membership.Role.SUPERADMIN);
         membership.setStatus(Membership.Status.ACTIVE);
 
-        // Genera un codice alfanumerico univoco di 8 caratteri per il futuro QR
         String uniqueCode = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         membership.setMembershipCode("ASP-" + uniqueCode);
         membership.setBadgeVisible(true);
 
         membershipRepository.save(membership);
-
         return savedAssociation;
     }
 
@@ -74,22 +63,15 @@ public class AssociationService {
         return associationRepository.findAll();
     }
 
-    /**
-     * Recupera tutti i membri di una specifica associazione e li mappa nel DTO di risposta.
-     */
     public List<MemberResponseDTO> getAssociationMembers(Long associationId) {
-        // 1. Controlla se l'associazione esiste davvero
         if (!associationRepository.existsById(associationId)) {
             throw new ResourceBadRequestException("Associazione richiesta non trovata.");
         }
 
-        // 2. Recupera le membership. Usiamo findAll() e filtriamo per ID associazione
-        // per prendere tutti gli stati (ACTIVE, PENDING, ecc.)
         List<Membership> memberships = membershipRepository.findAll().stream()
                 .filter(m -> m.getAssociation().getId().equals(associationId))
                 .collect(Collectors.toList());
 
-        // 3. Mappatura nel DTO pulito per il frontend
         return memberships.stream().map(m -> new MemberResponseDTO(
                 m.getId(),
                 m.getMembershipCode(),
@@ -103,59 +85,61 @@ public class AssociationService {
         )).collect(Collectors.toList());
     }
 
-    /**
-     * Permette a un utente di richiedere l'iscrizione a un'associazione.
-     * La membership viene creata come PENDING e ruolo MEMBER.
-     */
     @Transactional
     public Membership requestToJoin(JoinRequestDTO dto) {
-        // 1. Controlla se l'utente esiste
         User user = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new ResourceBadRequestException("Utente non trovato."));
 
-        // 2. Controlla se l'associazione esiste
         Association association = associationRepository.findById(dto.getAssociationId())
                 .orElseThrow(() -> new ResourceBadRequestException("Associazione non trovata."));
 
-        // 3. Usa il tuo metodo del repository per evitare duplicati!
         if (membershipRepository.existsByUserIdAndAssociationId(dto.getUserId(), dto.getAssociationId())) {
             throw new ResourceBadRequestException("Hai già una richiesta in corso o sei già membro di questa associazione.");
         }
 
-        // 4. Crea la nuova Membership in stato PENDING
         Membership membership = new Membership();
         membership.setUser(user);
         membership.setAssociation(association);
-        membership.setRole(Membership.Role.MEMBER); // Ruolo base
-        membership.setStatus(Membership.Status.PENDING); // In attesa di approvazione del direttivo
+        membership.setRole(Membership.Role.MEMBER);
+        membership.setStatus(Membership.Status.PENDING);
 
-        // Generiamo il codice tessera provvisorio
         String uniqueCode = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         membership.setMembershipCode("ASP-" + uniqueCode);
-        membership.setBadgeVisible(false); // Nascondi il badge finché non è ACTIVE
+        membership.setBadgeVisible(false);
 
         return membershipRepository.save(membership);
     }
 
-    /**
-     * Permette agli amministratori di approvare o rifiutare una richiesta di tesseramento.
-     */
+    private Membership getOrCreateAdminMembership(Long userId, Association association) {
+        return membershipRepository.findByUserIdAndAssociationId(userId, association.getId())
+                .orElseGet(() -> {
+                    boolean isCreator = association.getCreatorUser() != null && association.getCreatorUser().getId().equals(userId);
+                    if (isCreator) {
+                        Membership missingSuperAdmin = new Membership();
+                        missingSuperAdmin.setUser(association.getCreatorUser());
+                        missingSuperAdmin.setAssociation(association);
+                        missingSuperAdmin.setRole(Membership.Role.SUPERADMIN);
+                        missingSuperAdmin.setStatus(Membership.Status.ACTIVE);
+                        missingSuperAdmin.setMembershipCode("ASP-FIXED" + UUID.randomUUID().toString().substring(0, 4).toUpperCase());
+                        missingSuperAdmin.setBadgeVisible(true);
+                        return membershipRepository.save(missingSuperAdmin);
+                    }
+                    throw new ResourceBadRequestException("Operazione negata: Non possiedi i privilegi amministrativi per questo ente.");
+                });
+    }
+
     @Transactional
     public Membership processMembershipDecision(MembershipDecisionDTO dto, Long adminUserId) {
-        // 1. Recupera la richiesta
         Membership membership = membershipRepository.findById(dto.getMembershipId())
                 .orElseThrow(() -> new ResourceBadRequestException("Richiesta non trovata."));
 
-        // 2. Recupera chi sta decidendo
-        Membership adminMembership = membershipRepository.findByUserIdAndAssociationId(adminUserId, membership.getAssociation().getId())
-                .orElseThrow(() -> new ResourceBadRequestException("Non sei membro di questa associazione."));
+        Membership adminMembership = getOrCreateAdminMembership(adminUserId, membership.getAssociation());
 
-        // 3. Controllo gerarchico: l'admin può modificare questo target?
-        if (adminMembership.getRole() == Membership.Role.ADMIN && membership.getRole() == Membership.Role.SUPERADMIN) {
-            throw new ResourceBadRequestException("Un Admin non può modificare un SuperAdmin!");
+        // BLOCCO: Solo il SUPERADMIN può approvare o rifiutare le domande di iscrizione
+        if (adminMembership.getRole() != Membership.Role.SUPERADMIN) {
+            throw new ResourceBadRequestException("Operazione negata: Solo un SUPERADMIN può approvare o rifiutare i tesseramenti.");
         }
 
-        // 4. Esegui l'azione
         String action = dto.getAction().toUpperCase();
         if ("APPROVE".equals(action)) {
             membership.setStatus(Membership.Status.ACTIVE);
@@ -167,52 +151,34 @@ public class AssociationService {
 
         return membershipRepository.save(membership);
     }
-    /**
-     * Recupera le associazioni in formato pubblico (senza dati sensibili).
-     * Da usare per il carosello nella pagina di login.
-     */
-    public List<com.aspace.backend.dto.PublicAssociationDTO> findAllPublicAssociations() {
+
+    public List<PublicAssociationDTO> findAllPublicAssociations() {
         return associationRepository.findAll().stream()
-                .map(a -> new com.aspace.backend.dto.PublicAssociationDTO(
+                .map(a -> new PublicAssociationDTO(
                         a.getId(),
                         a.getName(),
                         a.getDescription(),
                         a.getBadgeBaseColor()
                 ))
-                .collect(Collectors.toList());}
+                .collect(Collectors.toList());
+    }
 
-    /**
-     * Verifica la gerarchia dei permessi prima di un'azione.
-     * Restituisce true se l'azione è consentita.
-     */
     private void validateHierarchy(Membership adminMembership, Membership targetMembership) {
-        // Se l'admin è SUPERADMIN, può fare tutto
-        if (adminMembership.getRole() == Membership.Role.SUPERADMIN) {
-            return;
-        }
-
-        // Se l'admin è ADMIN, non può toccare un altro ADMIN o un SUPERADMIN
-        if (adminMembership.getRole() == Membership.Role.ADMIN) {
-            if (targetMembership.getRole() == Membership.Role.SUPERADMIN ||
-                    targetMembership.getRole() == Membership.Role.ADMIN) {
-                throw new ResourceBadRequestException("Operazione negata: Non puoi modificare i privilegi di un altro amministratore.");
-            }
+        // BLOCCO GERARCHICO ASSOLUTO: Solo il SUPERADMIN può modificare ruoli o stati dei membri
+        if (adminMembership.getRole() != Membership.Role.SUPERADMIN) {
+            throw new ResourceBadRequestException("Operazione negata: Solo un SUPERADMIN ha la facoltà di variare i ruoli o gli stati dei membri.");
         }
     }
+
     @Transactional
     public Membership updateMemberStatusOrRole(UpdateMemberDTO dto, Long adminUserId) {
-        // 1. Recupera la membership del target da modificare
         Membership targetMembership = membershipRepository.findById(dto.getMembershipId())
                 .orElseThrow(() -> new ResourceBadRequestException("Membro non trovato."));
 
-        // 2. Recupera la membership di chi sta compiendo l'azione
-        Membership adminMembership = membershipRepository.findByUserIdAndAssociationId(adminUserId, targetMembership.getAssociation().getId())
-                .orElseThrow(() -> new ResourceBadRequestException("Non hai i permessi per questa associazione."));
+        Membership adminMembership = getOrCreateAdminMembership(adminUserId, targetMembership.getAssociation());
 
-        // 3. Valida la gerarchia
         validateHierarchy(adminMembership, targetMembership);
 
-        // 4. Aggiorna il Ruolo se inviato nel DTO
         if (dto.getNewRole() != null) {
             try {
                 targetMembership.setRole(Membership.Role.valueOf(dto.getNewRole().toUpperCase()));
@@ -221,11 +187,9 @@ public class AssociationService {
             }
         }
 
-        // 5. Aggiorna lo Stato (Es: Modificare in BANNED equivale ad eliminarlo dalle funzioni del portale)
         if (dto.getNewStatus() != null) {
             try {
                 targetMembership.setStatus(Membership.Status.valueOf(dto.getNewStatus().toUpperCase()));
-                // Se viene bannato o respinto, nascondiamo anche il badge per sicurezza
                 if (targetMembership.getStatus() == Membership.Status.BANNED || targetMembership.getStatus() == Membership.Status.REJECTED) {
                     targetMembership.setBadgeVisible(false);
                 }
@@ -235,4 +199,22 @@ public class AssociationService {
         }
 
         return membershipRepository.save(targetMembership);
-    }}
+    }
+
+    /**
+     * Struttura la risposta ritornando una mappa nidificata:
+     * { idAssociazione: { "status": "ACTIVE", "role": "ADMIN" } }
+     */
+    public Map<Long, Map<String, String>> getMyMembershipStatuses() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceBadRequestException("Utente autenticato non trovato."));
+
+        return membershipRepository.findAll().stream()
+                .filter(m -> m.getUser().getId().equals(currentUser.getId()))
+                .collect(Collectors.toMap(
+                        m -> m.getAssociation().getId(),
+                        m -> Map.of("status", m.getStatus().name(), "role", m.getRole().name())
+                ));
+    }
+}

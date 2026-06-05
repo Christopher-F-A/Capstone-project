@@ -126,4 +126,9 @@ public class AssociationController {
                 "newStatus", updated.getStatus().name()
         ));
     }
+
+    @GetMapping("/my-status")
+    public ResponseEntity<Map<Long, Map<String, String>>> getMyMembershipStatuses() {
+        return ResponseEntity.ok(associationService.getMyMembershipStatuses());
+    }
 }

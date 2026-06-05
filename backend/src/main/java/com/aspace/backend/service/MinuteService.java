@@ -41,32 +41,30 @@ public class MinuteService {
      */
     @Transactional
     public Minute createMinute(MinuteCreationDTO dto) {
-        // 1. Recupera l'email dal contesto di sicurezza (JWT)
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-
-        // CORREZIONE QUI: usa 'userRepository' minuscolo
-        User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceBadRequestException("Utente non trovato."));
-
-        // 2. Controlla l'esistenza dell'associazione
         Association association = associationRepository.findById(dto.getAssociationId())
                 .orElseThrow(() -> new ResourceBadRequestException("Associazione non trovata."));
 
-        // 3. Recupera la membership di questo utente in QUESTA associazione
-        Membership membership = membershipRepository.findByUserIdAndAssociationId(currentUser.getId(), association.getId())
-                .orElseThrow(() -> new ResourceBadRequestException("Non sei tesserato in questa associazione."));
-
-        // 4. Controllo di autorità: Solo ADMIN o SUPERADMIN possono procedere
-        if (membership.getRole() != Membership.Role.ADMIN && membership.getRole() != Membership.Role.SUPERADMIN) {
-            throw new ResourceBadRequestException("Operazione negata: Solo gli amministratori possono caricare verbali.");
-        }
-
-        // 5. Salva il verbale
         Minute minute = new Minute();
         minute.setAssociation(association);
         minute.setTitle(dto.getTitle());
-        minute.setPdfUrl(dto.getPdfUrl());
-        minute.setDocumentHash(dto.getDocumentHash());
+        minute.setContentBody(dto.getContentBody());
+
+        // AUTOMAZIONE: Calcola l'hash SHA-256 combinando Titolo + Contenuto in modo deterministico
+        try {
+            String rawTextToHash = dto.getTitle() + "||" + dto.getContentBody();
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] encodedHash = digest.digest(rawTextToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+            StringBuilder hexString = new StringBuilder(2 * encodedHash.length);
+            for (byte b : encodedHash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            minute.setDocumentHash(hexString.toString()); // L'hash viene inserito in automatico!
+        } catch (Exception e) {
+            throw new ResourceBadRequestException("Impossibile generare l'impronta crittografica del testo.");
+        }
 
         return minuteRepository.save(minute);
     }
@@ -75,30 +73,36 @@ public class MinuteService {
      * Appone una firma digitale con tracciamento IP sul verbale.
      */
     @Transactional
-    public Signature signMinute(SignMinuteDTO dto) {
+    public Signature signMinute(SignMinuteDTO dto) { // <-- Cambiato il tipo di ritorno in Signature
+
+        // 1. Recupera il verbale usando l'ID estratto dal DTO
         Minute minute = minuteRepository.findById(dto.getMinuteId())
                 .orElseThrow(() -> new ResourceBadRequestException("Verbale non trovato."));
 
-        Membership membership = membershipRepository.findById(dto.getMembershipId())
-                .orElseThrow(() -> new ResourceBadRequestException("Membership non trovata."));
+        // 2. Sicurezza: Recupera l'utente connesso dal JWT in modo protetto
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceBadRequestException("Utente non trovato."));
 
-        // Controllo di sicurezza: la membership appartiene all'associazione del verbale?
-        if (!membership.getAssociation().getId().equals(minute.getAssociation().getId())) {
-            throw new ResourceBadRequestException("Non puoi firmare un verbale di un'altra associazione.");
+        // 3. Trova la REALE membership dell'utente per l'associazione di QUESTO verbale
+        // Questo risolve il bug bloccando lo scambio di ID errati tra front-end e back-end
+        Membership membership = membershipRepository.findByUserIdAndAssociationId(currentUser.getId(), minute.getAssociation().getId())
+                .orElseThrow(() -> new ResourceBadRequestException("Operazione negata: Non hai un tesseramento valido per questo ente."));
+
+        // 4. Controlla lo stato del tesseramento
+        if (membership.getStatus() != Membership.Status.ACTIVE) {
+            throw new ResourceBadRequestException("Non puoi firmare un documento se il tuo tesseramento non è attivo.");
         }
 
-        // Controllo anti-duplicato: ha già firmato questo specifico verbale?
-        boolean alreadySigned = signatureRepository.existsByMinuteIdAndMembershipId(dto.getMinuteId(), dto.getMembershipId());
-        if (alreadySigned) {
-            throw new ResourceBadRequestException("Hai già apposto la tua firma su questo verbale.");
-        }
-
+        // 5. Crea la firma inserendo i dati reali validati dal server
         Signature signature = new Signature();
         signature.setMinute(minute);
-        signature.setMembership(membership);
-        signature.setIpAddress(dto.getIpAddress());
-        signature.setSignedAt(LocalDateTime.now());
+        signature.setMembership(membership); // Associa la membership estratta dal JWT
 
+        // L'IP viene preso dal DTO (che il tuo controller ha già provveduto a calcolare tramite HttpServletRequest)
+        signature.setIpAddress(dto.getIpAddress() != null ? dto.getIpAddress() : "0.0.0.0");
+
+        // 6. Salva e RITORNA l'entità creata (così il controller riceve i dati per la risposta JSON)
         return signatureRepository.save(signature);
     }
 

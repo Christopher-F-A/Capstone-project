@@ -1,20 +1,13 @@
 package com.aspace.backend.service;
 
 import com.aspace.backend.dto.PostCreationDTO;
-import com.aspace.backend.entities.Association;
-import com.aspace.backend.entities.Membership;
-import com.aspace.backend.entities.Post;
+import com.aspace.backend.entities.*;
 import com.aspace.backend.exceptions.ResourceBadRequestException;
-import com.aspace.backend.repository.AssociationRepository;
-import com.aspace.backend.repository.MembershipRepository;
-import com.aspace.backend.repository.PostRepository;
-import com.aspace.backend.repository.SavedPostRepository;
+import com.aspace.backend.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.context.SecurityContextHolder;
-import com.aspace.backend.entities.User;
-import com.aspace.backend.repository.UserRepository;
 
 import java.util.List;
 
@@ -35,6 +28,12 @@ public class PostService {
 
     @Autowired
     private SavedPostRepository savedPostRepository;
+
+    @Autowired
+    private PollOptionRepository pollOptionRepository;
+
+    @Autowired
+    private PollVoteRepository pollVoteRepository;
 
     @Autowired
     private CloudinaryService cloudinaryService;
@@ -63,23 +62,95 @@ public class PostService {
             throw new ResourceBadRequestException("Solo gli addetti possono pubblicare post!");
         }
 
-        // 5. Mappatura dei campi e salvataggio
-        Post post = new Post();
-        post.setAssociation(association);
-        post.setAuthor(author); // Usa la membership reale recuperata in modo sicuro dal server
-        post.setTitle(dto.getTitle());
-        post.setContentBody(dto.getContentBody());
-        post.setMediaUrl(dto.getMediaUrl());
-        post.setEventDate(dto.getEventDate());
-        post.setEventId(dto.getEventId());
-
+        // 5. Validazione e Conversione del Tipo Post (Enum)
+        Post.PostType postType;
         try {
-            post.setType(Post.PostType.valueOf(dto.getType().toUpperCase()));
+            postType = Post.PostType.valueOf(dto.getType().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new ResourceBadRequestException("Tipo post non valido. Usa 'INFO' o 'EVENT'.");
+            // AGGIORNATO: Incluso 'POLL' nell'elenco dei tipi validi generati dall'eccezione
+            throw new ResourceBadRequestException("Tipo post non valido. Usa 'INFO', 'EVENT' o 'POLL'.");
         }
 
-        return postRepository.save(post);
+        // 6. Mappatura dei campi e configurazione dell'istanza
+        Post post = new Post();
+        post.setType(postType); // Imposta direttamente l'Enum validato
+        post.setAssociation(association);
+        post.setAuthor(author);
+        post.setTitle(dto.getTitle());
+        post.setContentBody(dto.getContentBody());
+
+        // Se si tratta di un sondaggio, ripuliamo i campi relativi agli eventi o ai media tradizionali
+        if (postType == Post.PostType.POLL) {
+            post.setMediaUrl(null);
+            post.setEventDate(null);
+            post.setEventId(null);
+        } else {
+            post.setMediaUrl(dto.getMediaUrl());
+            post.setEventDate(dto.getEventDate());
+            post.setEventId(dto.getEventId());
+        }
+
+        // 7. Salvataggio preliminare del Post (necessario per generare l'ID chiave primaria)
+        Post savedPost = postRepository.save(post);
+
+        // 8. Logica di indicizzazione delle Opzioni del Sondaggio
+        if (postType == Post.PostType.POLL) {
+            if (dto.getPollOptions() == null || dto.getPollOptions().size() < 2) {
+                throw new ResourceBadRequestException("Un sondaggio richiede la compilazione di almeno 2 opzioni di risposta.");
+            }
+
+            for (String optionText : dto.getPollOptions()) {
+                if (optionText != null && !optionText.trim().isEmpty()) {
+                    PollOption option = new PollOption();
+                    option.setPost(savedPost); // Collega l'opzione al post appena salvato
+                    option.setOptionText(optionText.trim());
+
+                    // Salva l'opzione a database (richiede l'iniezione del relativo repository)
+                    pollOptionRepository.save(option);
+                }
+            }
+        }
+
+        return savedPost;
+    }
+
+    @Transactional
+    public void castVote(Long postId, Long optionId) {
+        // 1. Verifica che il sondaggio esista
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceBadRequestException("Sondaggio non trovato."));
+
+        // 2. Verifica che l'opzione selezionata esista
+        PollOption option = pollOptionRepository.findById(optionId)
+                .orElseThrow(() -> new ResourceBadRequestException("Opzione di voto non valida."));
+
+        // 3. Sicurezza: Recupera l'utente connesso dal JWT
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceBadRequestException("Utente autenticato non trovato."));
+
+        // 4. Trova la membership reale dell'utente per questa associazione
+        Membership membership = membershipRepository.findByUserIdAndAssociationId(currentUser.getId(), post.getAssociation().getId())
+                .orElseThrow(() -> new ResourceBadRequestException("Operazione negata: Non sei tesserato in questa associazione."));
+
+        if (membership.getStatus() != Membership.Status.ACTIVE) {
+            throw new ResourceBadRequestException("Il tuo tesseramento deve essere attivo per poter votare.");
+        }
+
+        // 5. ECCCO L'ACCESSO A POLLVOTE-REPOSITORY (Risolve il warning dell'IDE!)
+        // Controllo anti-duplicazione crittografico a livello logico
+        boolean alreadyVoted = pollVoteRepository.existsByPostIdAndMembershipId(postId, membership.getId());
+        if (alreadyVoted) {
+            throw new ResourceBadRequestException("Hai già espresso la tua preferenza per questo sondaggio.");
+        }
+
+        // 6. Registra il voto associandolo al post, all'opzione e al membro
+        PollVote vote = new PollVote();
+        vote.setPost(post);
+        vote.setPollOption(option);
+        vote.setMembership(membership);
+
+        pollVoteRepository.save(vote);
     }
 
     @Transactional

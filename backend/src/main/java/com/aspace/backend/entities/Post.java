@@ -3,6 +3,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
+import java.util.List;
 
 @Entity
 @Table(name = "posts")
@@ -28,6 +29,10 @@ public class Post {
     @Column(nullable = false)
     private PostType type;
 
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties("post")
+    private List<PollOption> pollOptions;
+
     @Column(nullable = false)
     private String title;
 
@@ -43,5 +48,5 @@ public class Post {
     @Column(name = "event_id")
     private Long eventId;
 
-    public enum PostType { INFO, EVENT }
+    public enum PostType { INFO, EVENT, POLL }
 }

@@ -2,6 +2,7 @@ package com.aspace.backend.dto;
 
 import lombok.Data;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 public class PostCreationDTO {
@@ -13,4 +14,5 @@ public class PostCreationDTO {
     private LocalDate eventDate; // Opzionale (solo se type è EVENT)
     private String mediaUrl;     // Opzionale
     private Long eventId;
+    private List<String> pollOptions;
 }

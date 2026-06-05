@@ -38,4 +38,10 @@ public class PostController {
         response.put("message", "Post rimosso con successo dalla bacheca.");
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/{postId}/vote/{optionId}")
+    public ResponseEntity<Map<String, String>> vote(@PathVariable Long postId, @PathVariable Long optionId) {
+        postService.castVote(postId, optionId);
+        return ResponseEntity.ok(Map.of("message", "Voto registrato con successo!"));
+    }
 }

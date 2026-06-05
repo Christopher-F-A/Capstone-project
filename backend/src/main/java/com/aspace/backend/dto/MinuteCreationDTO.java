@@ -6,6 +6,6 @@ import lombok.Data;
 public class MinuteCreationDTO {
     private Long associationId;
     private String title;
-    private String pdfUrl;
+    private String contentBody;
     private String documentHash;
 }

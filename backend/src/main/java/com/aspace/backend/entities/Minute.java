@@ -1,32 +1,39 @@
 package com.aspace.backend.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.List;
+import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "minutes")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class Minute {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Entity
+    @Table(name = "minutes")
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public class Minute {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "association_id", nullable = false)
-    private Association association;
+        @Column(nullable = false)
+        private String title;
 
-    @Column(nullable = false)
-    private String title;
+        // MODIFICATO: Diventa un campo di testo capiente per memorizzare il testo del verbale scritto in loco
+        @Column(nullable = false, columnDefinition = "TEXT")
+        private String contentBody;
 
-    @Column(name = "pdf_url", nullable = false)
-    private String pdfUrl;
+        @Column(name = "document_hash", nullable = false)
+        private String documentHash;
 
-    @Column(name = "document_hash", nullable = false)
-    private String documentHash; // Hash SHA-256 anti-contraffazione del verbale
+        @Column(name = "created_at", nullable = false)
+        private LocalDateTime createdAt = LocalDateTime.now();
 
-    @OneToMany(mappedBy = "minute", cascade = CascadeType.ALL)
-    private List<Signature> signatures;
-}
+        @ManyToOne
+        @JoinColumn(name = "association_id", nullable = false)
+        @JsonIgnoreProperties({"memberships", "posts", "events", "minutes"})
+        private Association association;
+
+        @OneToMany(mappedBy = "minute", cascade = CascadeType.ALL, orphanRemoval = true)
+        private List<Signature> signatures;
+    }
