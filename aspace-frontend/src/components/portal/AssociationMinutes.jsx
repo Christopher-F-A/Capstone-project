@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../api/apiClient';
 
-export default function AssociationMinutes({ associationId, isAdmin, userMembershipId, isDarkMode }) {
+export default function AssociationMinutes({ associationId, associationLogoUrl, isAdmin, userMembershipId, isDarkMode }) {
   const [minutes, setMinutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -9,7 +9,6 @@ export default function AssociationMinutes({ associationId, isAdmin, userMembers
   const [title, setTitle] = useState('');
   const [contentBody, setContentBody] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
-
   const [selectedMinute, setSelectedMinute] = useState(null);
   const [signingId, setSigningId] = useState(null);
 
@@ -132,11 +131,21 @@ export default function AssociationMinutes({ associationId, isAdmin, userMembers
 
           return (
             <div key={minute.id} className={`p-6 rounded-2xl border backdrop-blur-md shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white/60 border-black/5'}`}>
-              <div className="flex-1 min-w-0">
-                <h3 className={`text-base font-medium tracking-wide ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{minute.title}</h3>
-                <p className="text-[9px] text-slate-400 font-mono mt-0.5 truncate">SHA-256: {minute.documentHash}</p>
-                <p className="text-[11px] text-indigo-400 font-medium mt-1">Sottoscrizioni: {signaturesCount}</p>
+
+              {/* INTEGRATO: Layout Allineato con Logo Ente Circolare a sinistra */}
+              <div className="flex items-center space-x-4 flex-1 min-w-0">
+                <img
+                  src={associationLogoUrl || 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?q=80&w=150'}
+                  className="w-11 h-11 rounded-xl object-cover border border-white/10 shadow shadow-black/30 shrink-0"
+                  alt="Doc Brand"
+                />
+                <div className="flex-1 min-w-0">
+                  <h3 className={`text-base font-medium tracking-wide truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{minute.title}</h3>
+                  <p className="text-[9px] text-slate-400 font-mono mt-0.5 truncate">SHA-256: {minute.documentHash}</p>
+                  <p className="text-[11px] text-indigo-400 font-medium mt-1">Sottoscrizioni: {signaturesCount}</p>
+                </div>
               </div>
+
               <div className="flex items-center space-x-3 shrink-0">
                 <button onClick={() => setSelectedMinute(minute)} className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider border transition cursor-pointer ${isDarkMode ? 'border-white/10 bg-white/5 text-white hover:bg-white/10' : 'border-black/10 bg-black/5 text-slate-800 hover:bg-black/10'}`}>Leggi</button>
                 {hasSigned ? (

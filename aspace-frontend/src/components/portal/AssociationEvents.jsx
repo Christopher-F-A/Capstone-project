@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../api/apiClient';
 
-export default function AssociationEvents({ associationId, isAdmin, userId, isDarkMode }) {
+export default function AssociationEvents({ associationId, associationLogoUrl, isAdmin, userId, isDarkMode }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -13,7 +13,6 @@ export default function AssociationEvents({ associationId, isAdmin, userId, isDa
   const [maxSlots, setMaxSlots] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
 
-  // Stati per la gestione del file multimediale dell'evento
   const [imageUrl, setImageUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [bookingLoadingId, setBookingLoadingId] = useState(null);
@@ -111,7 +110,7 @@ export default function AssociationEvents({ associationId, isAdmin, userId, isDa
       title: `In evidenza: ${event.title}`,
       contentBody: event.description || `Partecipa al nostro prossimo incontro a ${event.location}.`,
       eventDate: formattedDateForPost,
-      mediaUrl: event.imageUrl || null, // L'evento condiviso eredita l'immagine proporzionale in bacheca
+      mediaUrl: event.imageUrl || null,
       eventId: event.id
     };
     try {
@@ -159,15 +158,9 @@ export default function AssociationEvents({ associationId, isAdmin, userId, isDa
               </div>
             </div>
 
-            {/* SEZIONE COMPILAZIONE FILE LOCALE PER EVENTO */}
             <div>
               <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Copertina Evento (Carica da dispositivo)</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleEventFileChange}
-                className={`w-full text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600/20 file:text-indigo-400 hover:file:bg-indigo-600/30 cursor-pointer ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
-              />
+              <input type="file" accept="image/*" onChange={handleEventFileChange} className={`w-full text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600/20 file:text-indigo-400 hover:file:bg-indigo-600/30 cursor-pointer ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`} />
               {uploadingImage && <p className="text-[11px] text-indigo-400 animate-pulse mt-1.5">Caricamento dell'immagine sul cloud in corso...</p>}
               {imageUrl && (
                 <div className="mt-3 relative w-32 h-20 rounded-lg overflow-hidden border border-white/10">
@@ -182,7 +175,7 @@ export default function AssociationEvents({ associationId, isAdmin, userId, isDa
               <textarea rows="3" placeholder="Descrivi i punti cardine..." value={description} onChange={(e) => setDescription(e.target.value)} className={`w-full px-4 py-2 rounded-xl border text-sm resize-none focus:outline-none focus:border-indigo-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white/5 border-black/10 text-slate-900'}`} />
             </div>
             <div className="flex justify-end">
-              <button type="submit" disabled={submitLoading || uploadingImage} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs uppercase tracking-wider font-semibold rounded-xl transition shadow-lg disabled:opacity-50">
+              <button type="submit" disabled={submitLoading || uploadingImage} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs uppercase tracking-wider font-semibold rounded-xl transition shadow-lg disabled:opacity-50 cursor-pointer">
                 Pianifica Evento
               </button>
             </div>
@@ -208,19 +201,25 @@ export default function AssociationEvents({ associationId, isAdmin, userId, isDa
           return (
             <div key={event.id} className={`p-6 rounded-2xl border backdrop-blur-md shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-300 ${event.cancelled ? 'opacity-40 bg-red-500/5 border-red-500/20' : isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white/60 border-black/5'}`}>
               <div className="space-y-2 flex-1">
-                <div className="flex items-center space-x-3">
-                  <h3 className={`text-lg font-medium tracking-wide ${isDarkMode ? 'text-white' : 'text-slate-900'} ${event.cancelled ? 'line-through' : ''}`}>{event.title}</h3>
-                  {event.cancelled && <span className="text-[9px] px-2 py-0.5 rounded-md font-mono bg-red-500/20 text-red-400 border border-red-500/30 font-bold uppercase tracking-wider">Annullato</span>}
+
+                {/* BRAND HEADER EVENTO CON LOGO CLOUDINARY */}
+                <div className="flex items-center space-x-3.5 mb-3 border-b border-white/5 pb-2.5">
+                  <img
+                    src={associationLogoUrl || 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?q=80&w=150'}
+                    className="w-9 h-9 rounded-xl object-cover border border-white/10 shadow shadow-black/40 shrink-0"
+                    alt="Logo"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center space-x-2">
+                      <h3 className={`text-base font-semibold tracking-wide truncate ${isDarkMode ? 'text-white' : 'text-slate-900'} ${event.cancelled ? 'line-through' : ''}`}>{event.title}</h3>
+                      {event.cancelled && <span className="text-[9px] px-2 py-0.5 rounded-md font-mono bg-red-500/20 text-red-400 border border-red-500/30 font-bold uppercase tracking-wider">Annullato</span>}
+                    </div>
+                  </div>
                 </div>
 
-                {/* VISUALIZZAZIONE COPERTINA CON PROPORZIONI INTEGRALI PRESERVATE */}
                 {event.imageUrl && (
                   <div className={`my-3 rounded-xl overflow-hidden border p-1 bg-slate-500/5 ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
-                    <img
-                      src={event.imageUrl}
-                      alt={event.title}
-                      className="w-full h-auto max-h-[350px] object-contain rounded-lg"
-                    />
+                    <img src={event.imageUrl} alt={event.title} className="w-full h-auto max-h-[350px] object-contain rounded-lg" />
                   </div>
                 )}
 

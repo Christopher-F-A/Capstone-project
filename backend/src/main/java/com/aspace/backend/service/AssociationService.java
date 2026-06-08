@@ -43,6 +43,10 @@ public class AssociationService {
         association.setBadgeBaseColor(dto.getBadgeBaseColor());
         association.setCreatorUser(creator);
 
+        // NUOVO: Mappatura URL Multimediali Cloudinary
+        association.setLogoUrl(dto.getLogoUrl() != null ? dto.getLogoUrl() : "");
+        association.setBannerUrl(dto.getBannerUrl() != null ? dto.getBannerUrl() : "");
+
         Association savedAssociation = associationRepository.save(association);
 
         Membership membership = new Membership();
@@ -65,7 +69,7 @@ public class AssociationService {
 
     public List<MemberResponseDTO> getAssociationMembers(Long associationId) {
         if (!associationRepository.existsById(associationId)) {
-            throw new ResourceBadRequestException("Associazione richiesta non trovata.");
+            throw new ResourceBadRequestException("Associazione richiesta non trouvata.");
         }
 
         List<Membership> memberships = membershipRepository.findAll().stream()
@@ -124,7 +128,7 @@ public class AssociationService {
                         missingSuperAdmin.setBadgeVisible(true);
                         return membershipRepository.save(missingSuperAdmin);
                     }
-                    throw new ResourceBadRequestException("Operazione negata: Non possiedi i privilegi amministrativi per questo ente.");
+                    throw new ResourceBadRequestException("Operazione negata: Privilegi amministrativi non validi.");
                 });
     }
 
@@ -135,9 +139,8 @@ public class AssociationService {
 
         Membership adminMembership = getOrCreateAdminMembership(adminUserId, membership.getAssociation());
 
-        // BLOCCO: Solo il SUPERADMIN può approvare o rifiutare le domande di iscrizione
         if (adminMembership.getRole() != Membership.Role.SUPERADMIN) {
-            throw new ResourceBadRequestException("Operazione negata: Solo un SUPERADMIN può approvare o rifiutare i tesseramenti.");
+            throw new ResourceBadRequestException("Operazione negata: Richiede ruolo SUPERADMIN.");
         }
 
         String action = dto.getAction().toUpperCase();
@@ -158,15 +161,16 @@ public class AssociationService {
                         a.getId(),
                         a.getName(),
                         a.getDescription(),
-                        a.getBadgeBaseColor()
+                        a.getBadgeBaseColor(),
+                        a.getLogoUrl(),
+                        a.getBannerUrl()
                 ))
                 .collect(Collectors.toList());
     }
 
     private void validateHierarchy(Membership adminMembership, Membership targetMembership) {
-        // BLOCCO GERARCHICO ASSOLUTO: Solo il SUPERADMIN può modificare ruoli o stati dei membri
         if (adminMembership.getRole() != Membership.Role.SUPERADMIN) {
-            throw new ResourceBadRequestException("Operazione negata: Solo un SUPERADMIN ha la facoltà di variare i ruoli o gli stati dei membri.");
+            throw new ResourceBadRequestException("Operazione negata: Richiede ruolo SUPERADMIN.");
         }
     }
 
@@ -201,10 +205,6 @@ public class AssociationService {
         return membershipRepository.save(targetMembership);
     }
 
-    /**
-     * Struttura la risposta ritornando una mappa nidificata:
-     * { idAssociazione: { "status": "ACTIVE", "role": "ADMIN" } }
-     */
     public Map<Long, Map<String, String>> getMyMembershipStatuses() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByEmail(email)

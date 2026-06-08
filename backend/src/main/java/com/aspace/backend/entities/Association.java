@@ -22,9 +22,6 @@ public class Association {
     @Column(name = "tax_code_ets", unique = true, nullable = false)
     private String taxCodeEts;
 
-    @Column(name = "logo_url")
-    private String logoUrl;
-
     @Column(columnDefinition = "TEXT")
     private String description;
 
@@ -33,6 +30,12 @@ public class Association {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "logo_url", columnDefinition = "TEXT")
+    private String logoUrl;
+
+    @Column(name = "banner_url", columnDefinition = "TEXT")
+    private String bannerUrl;
 
     // AGGIUNTA LA RELAZIONE CON L'UTENTE CREATORE
     @ManyToOne(fetch = FetchType.EAGER)

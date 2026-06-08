@@ -12,4 +12,6 @@ public class PublicAssociationDTO {
     private String name;
     private String description;
     private String badgeBaseColor;
+    private String logoUrl;
+    private String bannerUrl;
 }

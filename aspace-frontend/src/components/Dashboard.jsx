@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [currentPortal, setCurrentPortal] = useState(null);
   const [portalTab, setPortalTab] = useState('feed');
 
+  // Stati tradizionali del modulo di creazione
   const [showModal, setShowModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newTaxCode, setNewTaxCode] = useState('');
@@ -33,13 +34,17 @@ export default function Dashboard() {
   const [newColor, setNewColor] = useState('#6366f1');
   const [createLoading, setCreateLoading] = useState(false);
 
-  // Cabina di regia membri
+  // NUOVI STATI PER LA GESTIONE DEL LOGO E DELLA COPERTINA
+  const [logoUrl, setLogoUrl] = useState('');
+  const [bannerUrl, setBannerUrl] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+
   const [selectedAssoc, setSelectedAssoc] = useState(null);
   const [pendingMembers, setPendingMembers] = useState([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [showManageMembersModal, setShowManageMembersModal] = useState(false);
 
-  // Stati sdoppiati per preservare la compatibilità con il layout
   const [joinedStatus, setJoinedStatus] = useState({});
   const [joinedRoles, setJoinedRoles] = useState({});
 
@@ -56,15 +61,12 @@ export default function Dashboard() {
 
       if (user.id) {
         const statusResponse = await apiClient.get('/associations/my-status');
-
-        // Elaboriamo la mappa nidificata del server smistando i dati negli stati corretti
         const statusMap = {};
         const roleMap = {};
         Object.keys(statusResponse.data).forEach(assocId => {
           statusMap[assocId] = statusResponse.data[assocId].status;
           roleMap[assocId] = statusResponse.data[assocId].role;
         });
-
         setJoinedStatus(statusMap);
         setJoinedRoles(roleMap);
       }
@@ -75,7 +77,28 @@ export default function Dashboard() {
     }
   };
 
-  // MODIFICATO: Risultano amministratori sia i SUPERADMIN che gli ADMIN attivi
+  // Funzione helper riutilizzabile per caricare le immagini su Cloudinary
+  const handleImageUpload = async (file, type) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      if (type === 'logo') setUploadingLogo(true);
+      if (type === 'banner') setUploadingBanner(true);
+
+      const response = await apiClient.post('/media/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (type === 'logo') setLogoUrl(response.data.url);
+      if (type === 'banner') setBannerUrl(response.data.url);
+    } catch (err) {
+      alert('Impossibile elaborare il file immagine.');
+    } finally {
+      setUploadingLogo(false);
+      setUploadingBanner(false);
+    }
+  };
+
   const myAdminAssociations = associations.filter(assoc => {
     const role = joinedRoles[assoc.id];
     const status = joinedStatus[assoc.id];
@@ -99,13 +122,24 @@ export default function Dashboard() {
   const handleCreateAssociation = async (e) => {
     e.preventDefault();
     if (!newName || !newTaxCode || !newDesc) return;
-    const payload = { name: newName, taxCodeEts: newTaxCode, description: newDesc, badgeBaseColor: newColor, creatorUserId: user.id };
+
+    // PAYLOAD AGGIORNATO CON LOGO E BANNER URL
+    const payload = {
+      name: newName,
+      taxCodeEts: newTaxCode,
+      description: newDesc,
+      badgeBaseColor: newColor,
+      creatorUserId: user.id,
+      logoUrl: logoUrl,
+      bannerUrl: bannerUrl
+    };
 
     try {
       setCreateLoading(true);
       await apiClient.post('/associations', payload);
       alert("Associazione creata con successo!");
       setNewName(''); setNewTaxCode(''); setNewDesc(''); setNewColor('#6366f1');
+      setLogoUrl(''); setBannerUrl('');
       setShowModal(false);
       fetchAssociations();
     } catch (err) {
@@ -159,7 +193,6 @@ export default function Dashboard() {
     }
   };
 
-  // MODIFICATO: Partecipano come membri solo i tesserati con ruolo effettivo MEMBER
   const myMemberAssociations = associations.filter(assoc => {
     const role = joinedRoles[assoc.id];
     const status = joinedStatus[assoc.id];
@@ -173,12 +206,21 @@ export default function Dashboard() {
       <div className={`min-h-screen font-sans antialiased pb-12 relative overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
         <LavaBackground isDarkMode={isDarkMode} lavaColor={lavaColor} />
 
+        {/* NAV PORTALE AGGIORNATA: MOSTRA IL LOGO AZIENDALE DI CLOUDINARY AFFIANCO AL NOME */}
         <nav className={`fixed top-0 left-0 right-0 z-50 border-b backdrop-blur-xl h-16 flex items-center justify-between px-6 ${isDarkMode ? 'border-white/10 bg-slate-950/60' : 'border-black/5 bg-white/60'}`}>
           <div className="flex items-center space-x-4">
             <button onClick={() => setCurrentPortal(null)} className="text-xs uppercase tracking-wider font-semibold text-indigo-500 hover:text-indigo-400 cursor-pointer">
               Torna all'Hub
             </button>
             <span className="text-slate-400">/</span>
+
+            {currentPortal.logoUrl && (
+              <img
+                src={currentPortal.logoUrl}
+                alt="Logo"
+                className="w-7 h-7 rounded-xl object-cover border border-white/10 shadow-md shadow-black/20"
+              />
+            )}
             <span className="font-medium text-sm">{currentPortal.name}</span>
           </div>
 
@@ -192,20 +234,37 @@ export default function Dashboard() {
 
         <main className="max-w-7xl mx-auto px-6 mt-28 z-10 relative">
           {portalTab === 'feed' && (
-            <AssociationFeed associationId={currentPortal.id} isAdmin={isUserAdminOfCurrentPortal} userMembershipId={user.id} isDarkMode={isDarkMode} onRedirectToEvents={() => setPortalTab('events')} />
+            <AssociationFeed
+              associationId={currentPortal.id}
+              associationLogoUrl={currentPortal.logoUrl} // <--- AGGIUNTO
+              isAdmin={isUserAdminOfCurrentPortal}
+              userMembershipId={user.id}
+              isDarkMode={isDarkMode}
+              onRedirectToEvents={() => setPortalTab('events')}
+            />
           )}
           {portalTab === 'events' && (
-            <AssociationEvents associationId={currentPortal.id} isAdmin={isUserAdminOfCurrentPortal} userId={user.id} isDarkMode={isDarkMode} />
+            <AssociationEvents
+              associationId={currentPortal.id}
+              isAdmin={isUserAdminOfCurrentPortal}
+              userId={user.id}
+              isDarkMode={isDarkMode}
+            />
           )}
           {portalTab === 'minutes' && (
-            <AssociationMinutes associationId={currentPortal.id} isAdmin={isUserAdminOfCurrentPortal} userMembershipId={user.id} isDarkMode={isDarkMode} />
+            <AssociationMinutes
+              associationId={currentPortal.id}
+              associationLogoUrl={currentPortal.logoUrl} // <--- AGGIUNTO
+              isAdmin={isUserAdminOfCurrentPortal}
+              userMembershipId={user.id}
+              isDarkMode={isDarkMode}
+            />
           )}
         </main>
       </div>
     );
   }
 
-  // Estraiamo il ruolo dell'utente loggato nell'associazione selezionata per bloccare la UI del pannello membri
   const currentUserRoleInSelectedAssoc = selectedAssoc ? joinedRoles[selectedAssoc.id] : null;
   const isCurrentUserSuperAdmin = currentUserRoleInSelectedAssoc === 'SUPERADMIN';
 
@@ -221,34 +280,28 @@ export default function Dashboard() {
         onEnterPortal={(assoc) => { setCurrentPortal(assoc); setPortalTab('feed'); }}
       />
 
-      <CreateAssociationModal showModal={showModal} setShowModal={setShowModal} newName={newName} setNewName={setNewName} newTaxCode={newTaxCode} setNewTaxCode={setNewTaxCode} newColor={newColor} setNewColor={setNewColor} newDesc={newDesc} setNewDesc={setNewDesc} onCreateAssociation={handleCreateAssociation} createLoading={createLoading} isDarkMode={isDarkMode} />
+      {/* AGGIORNATE LE PROPS DEL MODALE PER GESTIRE I CAMPI IMMAGINE LOCALI */}
+      <CreateAssociationModal
+        showModal={showModal} setShowModal={setShowModal} newName={newName} setNewName={setNewName} newTaxCode={newTaxCode} setNewTaxCode={setNewTaxCode} newColor={newColor} setNewColor={setNewColor} newDesc={newDesc} setNewDesc={setNewDesc} onCreateAssociation={handleCreateAssociation} createLoading={createLoading} isDarkMode={isDarkMode}
+        logoUrl={logoUrl} setLogoUrl={setLogoUrl} bannerUrl={bannerUrl} setBannerUrl={setBannerUrl} uploadingLogo={uploadingLogo} uploadingBanner={uploadingBanner} onImageUpload={handleImageUpload}
+      />
 
       {showManageMembersModal && selectedAssoc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
           <div className={`w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-2xl p-6 border shadow-2xl flex flex-col space-y-4 ${isDarkMode ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-black/10 text-slate-900'}`}>
             <div className="flex justify-between items-center border-b pb-3 border-white/10 gap-4">
               <div>
-                <h2 className="text-lg font-semibold uppercase tracking-wide">Pannello Controllo Organizzativo</h2>
+                <h2 className="text-lg font-semibold uppercase tracking-wide">Pannello di Controllo Organizzativo</h2>
                 <p className="text-xs text-slate-400 mt-0.5">Spazio Amministrativo: <span className="text-indigo-400 font-medium">{selectedAssoc.name}</span></p>
               </div>
               <div className="flex items-center space-x-3 shrink-0">
-                <button
-                  onClick={() => {
-                    setCurrentPortal(selectedAssoc);
-                    setPortalTab('feed');
-                    setShowManageMembersModal(false);
-                  }}
-                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold uppercase tracking-wider rounded-xl shadow-md transition transform active:scale-95 cursor-pointer"
-                >
-                  Entra nel Portale
-                </button>
+                <button onClick={() => { setCurrentPortal(selectedAssoc); setPortalTab('feed'); setShowManageMembersModal(false); }} className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold uppercase tracking-wider rounded-xl shadow-md transition transform active:scale-95 cursor-pointer">Entra nel Portale</button>
                 <button onClick={() => { setShowManageMembersModal(false); setSelectedAssoc(null); }} className="text-xs font-bold text-slate-400 hover:text-slate-200 uppercase tracking-widest cursor-pointer">Chiudi</button>
               </div>
             </div>
 
-            {membersLoading && <p className="text-sm text-slate-400 animate-pulse italic py-4">Sincronizzazione registro soci...</p>}
-            {!membersLoading && pendingMembers.length === 0 && <p className="text-sm text-slate-500 italic py-6 text-center">Nessun tesserato presente.</p>}
-
+            {membersLoading && <p className="text-sm text-slate-400 animate-pulse italic py-4">Sincronizzazione del registro dei soci...</p>}
+            {!membersLoading && pendingMembers.length === 0 && <p className="text-sm text-slate-500 italic py-6 text-center">Nessun tesserato presente in associazione.</p>}
             {!membersLoading && pendingMembers.length > 0 && (
               <div className="overflow-x-auto rounded-xl border border-white/5">
                 <table className="w-full text-left border-collapse text-xs">
@@ -265,7 +318,6 @@ export default function Dashboard() {
                     {pendingMembers.map((member) => {
                       const isPending = member.status === 'PENDING';
                       const isBanned = member.status === 'BANNED' || member.status === 'REJECTED';
-
                       return (
                         <tr key={member.membershipId} className={`hover:bg-white/5 transition-colors ${isBanned ? 'opacity-50 bg-red-500/5' : ''}`}>
                           <td className="p-3">
@@ -281,7 +333,6 @@ export default function Dashboard() {
                             }`}>{member.status}</span>
                           </td>
                           <td className="p-3">
-                            {/* DISABILITATO SE L'UTENTE LOGGATO NON È UN SUPERADMIN */}
                             <select
                               value={member.role}
                               disabled={isBanned || member.userId === user.id || !isCurrentUserSuperAdmin}
@@ -297,7 +348,6 @@ export default function Dashboard() {
                           </td>
                           <td className="p-3 text-right text-slate-400 font-medium">
                             <div className="flex justify-end gap-2">
-                              {/* SEZIONE COMPORTAMENTALE: Se l'utente è un semplice ADMIN, vede le scritte di blocco informative al posto dei bottoni attivi */}
                               {!isCurrentUserSuperAdmin ? (
                                 <span className="text-[10px] text-slate-400 italic bg-white/5 px-2 py-1 rounded border border-white/5">Richiede SUPERADMIN</span>
                               ) : (
@@ -308,12 +358,11 @@ export default function Dashboard() {
                                       <button onClick={() => handleDecision(member.membershipId, 'REJECT', selectedAssoc.id)} className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-[10px] font-semibold uppercase tracking-wider rounded-lg transition cursor-pointer">Rifiuta</button>
                                     </>
                                   )}
-
                                   {!isPending && member.userId !== user.id && (
                                     isBanned ? (
                                       <button onClick={() => handleUpdateMember(member.membershipId, 'MEMBER', 'ACTIVE')} className="px-2.5 py-1 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold uppercase tracking-wider rounded-lg transition cursor-pointer">Riabilita</button>
                                     ) : (
-                                      <button onClick={() => { if(window.confirm(`Revocare il tesseramento di ${member.firstName}?`)) handleUpdateMember(member.membershipId, member.role, 'BANNED'); }} className="px-2.5 py-1 bg-red-600/10 hover:bg-red-600/20 text-red-400 border border-red-500/20 text-[10px] font-semibold uppercase tracking-wider rounded-lg transition cursor-pointer">Revoca</button>
+                                      <button onClick={() => { if(window.confirm(`Sei sicuro di voler revocare il tesseramento di ${member.firstName}?`)) handleUpdateMember(member.membershipId, member.role, 'BANNED'); }} className="px-2.5 py-1 bg-red-600/10 hover:bg-red-600/20 text-red-400 border border-red-500/20 text-[10px] font-semibold uppercase tracking-wider rounded-lg transition cursor-pointer">Revoca</button>
                                     )
                                   )}
                                 </>
