@@ -1,7 +1,13 @@
 import React from 'react';
 
 export default function LavaBackground({ isDarkMode, lavaColor }) {
+  // Verifica se viene fornito un codice colore Hex diretto (es. "#6366f1")
+  const isHexColor = lavaColor?.startsWith('#');
+
+  // Metodo alternativo per mappare stringhe letterali di fallback alle classi Tailwind
   const getLavaClass = () => {
+    if (isHexColor) return ''; // Non servono classi se usiamo lo stile inline esadecimale
+
     if (isDarkMode) {
       switch (lavaColor) {
         case 'fuchsia': return 'bg-fuchsia-600';
@@ -21,7 +27,7 @@ export default function LavaBackground({ isDarkMode, lavaColor }) {
 
   return (
     <>
-      {/* ANIMAZIONI PURE CSS*/}
+      {/* ANIMAZIONI PURE CSS */}
       <style>{`
         @keyframes lava1 {
           0%, 100% { transform: translate(0px, 0px) scale(1); }
@@ -44,9 +50,18 @@ export default function LavaBackground({ isDarkMode, lavaColor }) {
 
       {/* STRUTTURA DELLE SFERE FLUIDE */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className={`absolute w-[500px] h-[500px] rounded-full blur-[110px] mix-blend-screen opacity-45 animate-lava-slow-1 -top-20 -left-10 transition-colors duration-1000 ${getLavaClass()}`} />
-        <div className={`absolute w-[550px] h-[550px] rounded-full blur-[130px] mix-blend-screen opacity-35 animate-lava-slow-2 top-1/4 -right-20 transition-colors duration-1000 ${getLavaClass()}`} />
-        <div className={`absolute w-[450px] h-[450px] rounded-full blur-[100px] mix-blend-screen opacity-30 animate-lava-slow-3 bottom-0 left-1/4 transition-colors duration-1000 ${getLavaClass()}`} />
+        <div
+          className={`absolute w-[500px] h-[500px] rounded-full blur-[110px] mix-blend-screen opacity-45 animate-lava-slow-1 -top-20 -left-10 transition-all duration-1000 ${getLavaClass()}`}
+          style={isHexColor ? { backgroundColor: lavaColor } : {}}
+        />
+        <div
+          className={`absolute w-[550px] h-[550px] rounded-full blur-[130px] mix-blend-screen opacity-35 animate-lava-slow-2 top-1/4 -right-20 transition-all duration-1000 ${getLavaClass()}`}
+          style={isHexColor ? { backgroundColor: lavaColor } : {}}
+        />
+        <div
+          className={`absolute w-[450px] h-[450px] rounded-full blur-[100px] mix-blend-screen opacity-30 animate-lava-slow-3 bottom-0 left-1/4 transition-all duration-1000 ${getLavaClass()}`}
+          style={isHexColor ? { backgroundColor: lavaColor } : {}}
+        />
       </div>
     </>
   );

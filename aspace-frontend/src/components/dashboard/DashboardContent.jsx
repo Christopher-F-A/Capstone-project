@@ -32,6 +32,7 @@ export default function DashboardContent({
           joinedStatus={joinedStatus}
           onBecomeMember={handleBecomeMember}
           isDarkMode={isDarkMode}
+          onEnterPortal={onEnterPortal}
         />
       ) : (
         <MySpaces
@@ -45,7 +46,7 @@ export default function DashboardContent({
           onDecision={handleDecision}
           setShowModal={setShowModal}
           isDarkMode={isDarkMode}
-          onEnterPortal={onEnterPortal} // Inoltra la proprieta a MySpaces
+          onEnterPortal={onEnterPortal}
         />
       )}
     </main>
